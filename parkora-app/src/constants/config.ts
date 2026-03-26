@@ -9,6 +9,6 @@ export const PARKING_LOT = {
   id: 1,
   name: "Parking Central",
   totalSpots: 6,
-  latitude: 36.1913, // replace with your actual parking lot coordinates
-  longitude: 5.4141,
+  latitude: 36.75000775277104,
+  longitude: 5.039663538251243,
 };

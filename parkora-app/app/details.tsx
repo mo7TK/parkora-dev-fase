@@ -63,7 +63,7 @@ export default function Details() {
                 {summary.free}
               </Text>
             ) : (
-              <ActivityIndicator size="small" />
+              <ActivityIndicator size="large" style={{ marginBottom: 8 }} />
             )}
             <Text style={styles.statLabel}>Available</Text>
           </View>
@@ -76,7 +76,7 @@ export default function Details() {
                 {summary.occupied}
               </Text>
             ) : (
-              <ActivityIndicator size="small" />
+              <ActivityIndicator size="large" style={{ marginBottom: 8 }} />
             )}
             <Text style={styles.statLabel}>Occupied</Text>
           </View>
