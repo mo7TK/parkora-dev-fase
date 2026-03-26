@@ -23,13 +23,29 @@ class SpotsUpdate(BaseModel):
     spots: list[SpotStatus]
 
 
+@router.get("/spots-summary")
+def spots_summary():
+    """
+    Called by the details screen on load.
+    Returns a simple count — no WebSocket needed for this.
+    """
+    spots    = latest_state["spots"]
+    free     = sum(1 for s in spots if s["status"] == "free")
+    occupied = sum(1 for s in spots if s["status"] == "occupied")
+    return {
+        "total":    len(spots),
+        "free":     free,
+        "occupied": occupied,
+    }
+
+
 @router.post("/update-spots")
 async def update_spots(data: SpotsUpdate):
     global latest_state
     latest_state = {"spots": [spot.dict() for spot in data.spots]}
     await manager.broadcast(json.dumps(latest_state))
     return {
-        "received": len(data.spots),
+        "received":         len(data.spots),
         "clients_notified": len(manager.active_connections),
     }
 
