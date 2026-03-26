@@ -37,7 +37,7 @@ export default function Details() {
   }
 
   function handleViewLayout() {
-    router.push("/minimap");
+    router.push("/parking/details");
   }
 
   return (

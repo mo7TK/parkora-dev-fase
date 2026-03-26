@@ -1,6 +1,14 @@
-import { useRef, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import MapView, { Marker, Region } from "react-native-maps";
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,11 +17,30 @@ import ParkingPin from "@/src/components/ParkingPin";
 import ParkingCard from "@/src/components/ParkingCard";
 import { PARKING_LOT } from "@/src/constants/config";
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+const SHEET_HEIGHT = 160;
+// Start the sheet this far below its resting position.
+// Using 35% of screen height guarantees it's fully off-screen on any device.
+const SLIDE_START = Dimensions.get("window").height * 0.35;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // true → map is currently centred on user → show dot inside locate button
+  const [isCentred, setIsCentred] = useState(false);
+
+  // Sheet starts off-screen and slides up on mount
+  const slideAnim = useRef(new Animated.Value(SLIDE_START)).current;
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 420,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   async function goToMyLocation() {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -31,11 +58,17 @@ export default function MapScreen() {
       },
       800,
     );
+    setIsCentred(true); // dot appears
+  }
+
+  // User dragged the map → no longer centred → dot disappears
+  function handleRegionChange() {
+    if (isCentred) setIsCentred(false);
   }
 
   return (
     <View style={styles.container}>
-      {/* Fullscreen map */}
+      {/* ── Fullscreen map ──────────────────────────────────────────────────── */}
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -46,39 +79,52 @@ export default function MapScreen() {
           longitudeDelta: 0.005,
         }}
         showsUserLocation
+        showsMyLocationButton={false} // removes the native duplicate button
+        onRegionChangeComplete={handleRegionChange}
       >
         <Marker
           coordinate={{
             latitude: PARKING_LOT.latitude,
             longitude: PARKING_LOT.longitude,
           }}
-          onPress={() => router.push("/details")}
+          onPress={() => router.push("/parking/details")}
         >
           <ParkingPin />
         </Marker>
       </MapView>
 
-      {/* My location button */}
-      <TouchableOpacity style={styles.locationButton} onPress={goToMyLocation}>
-        <Ionicons name="locate" size={22} color="#1a73e8" />
-      </TouchableOpacity>
-
-      {/* Location error message */}
+      {/* ── Location error banner ────────────────────────────────────────────── */}
       {locationError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
         </View>
       )}
 
-      {/* Bottom sheet with parking cards */}
-      <View style={styles.bottomSheet}>
+      {/* ── Locate button — right side, just above the sheet ────────────────── */}
+      <TouchableOpacity style={styles.locationButton} onPress={goToMyLocation}>
+        <Ionicons name="locate" size={22} color="#1a73e8" />
+        {isCentred && <View style={styles.locateDot} />}
+      </TouchableOpacity>
+
+      {/* ── Animated bottom sheet ────────────────────────────────────────────── */}
+      <Animated.View
+        style={[styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}
+      >
         <View style={styles.sheetHandle} />
         <Text style={styles.sheetTitle}>Nearby Parking</Text>
-        <ParkingCard
-          name={PARKING_LOT.name}
-          onPress={() => router.push("/details")}
-        />
-      </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cardsRow}
+        >
+          <ParkingCard
+            name={PARKING_LOT.name}
+            totalSpots={PARKING_LOT.totalSpots}
+            onPress={() => router.push("/parking/details")}
+          />
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 }
@@ -91,10 +137,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Location button ───────────────────────────────────────────────────────
+  // ── Locate button ──────────────────────────────────────────────────────────
   locationButton: {
     position: "absolute",
-    top: 56,
+    bottom: SHEET_HEIGHT + 12,
     right: 16,
     backgroundColor: "#fff",
     width: 44,
@@ -108,8 +154,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  // Dot appears in the centre of the icon ring when map is locked to user
+  locateDot: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#1a73e8",
+    // centre it inside the 44x44 button
+    top: 18,
+    left: 18,
+  },
 
-  // ── Error banner ──────────────────────────────────────────────────────────
+  // ── Error banner ───────────────────────────────────────────────────────────
   errorBanner: {
     position: "absolute",
     top: 110,
@@ -124,7 +181,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // ── Bottom sheet ──────────────────────────────────────────────────────────
+  // ── Bottom sheet ───────────────────────────────────────────────────────────
   bottomSheet: {
     position: "absolute",
     bottom: 0,
@@ -155,5 +212,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1a1a2e",
     marginBottom: 12,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 12,
+    paddingRight: 8,
   },
 });
