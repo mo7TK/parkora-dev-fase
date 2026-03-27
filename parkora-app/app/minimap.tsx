@@ -7,7 +7,7 @@ import { WS_URL } from "@/src/constants/config";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Spot = {
-  id:     number;
+  id: number;
   status: "free" | "occupied";
 };
 
@@ -15,14 +15,15 @@ type ConnectionStatus = "connecting" | "connected" | "disconnected";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MiniMap() {
-  const [spots, setSpots]                     = useState<Spot[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
-  const wsRef                                 = useRef<WebSocket | null>(null);
+  const [spots, setSpots] = useState<Spot[]>([]);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("connecting");
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     function connect() {
       setConnectionStatus("connecting");
-      const ws    = new WebSocket(WS_URL);
+      const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -52,17 +53,16 @@ export default function MiniMap() {
   }, []);
 
   const statusColor = {
-    connecting:   "#f0a500",
-    connected:    "#2ecc71",
+    connecting: "#f0a500",
+    connected: "#2ecc71",
     disconnected: "#e74c3c",
   }[connectionStatus];
 
-  const freeCount     = spots.filter((s) => s.status === "free").length;
+  const freeCount = spots.filter((s) => s.status === "free").length;
   const occupiedCount = spots.filter((s) => s.status === "occupied").length;
 
   return (
     <View style={styles.container}>
-
       <View style={styles.header}>
         <Text style={styles.title}>Parking Layout</Text>
         <View style={styles.statusRow}>
@@ -100,7 +100,6 @@ export default function MiniMap() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.grid}
       />
-
     </View>
   );
 }

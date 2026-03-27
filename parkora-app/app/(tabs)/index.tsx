@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,30 +17,75 @@ import ParkingPin from "@/src/components/ParkingPin";
 import ParkingCard from "@/src/components/ParkingCard";
 import { PARKING_LOT } from "@/src/constants/config";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const SHEET_HEIGHT = 160;
-// Start the sheet this far below its resting position.
-// Using 35% of screen height guarantees it's fully off-screen on any device.
-const SLIDE_START = Dimensions.get("window").height * 0.35;
+// ── Sheet configuration ───────────────────────────────────────────────────────
+const SHEET_HEIGHT = 170; // total height of the sheet in pixels
+const DRAG_THRESHOLD = 60; // how many px the user must drag before it snaps away
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(true);
 
-  // true → map is currently centred on user → show dot inside locate button
-  const [isCentred, setIsCentred] = useState(false);
+  /*
+    translateY = 0           → sheet fully visible at bottom
+    translateY = SHEET_HEIGHT → sheet completely hidden below screen
+    We start at SHEET_HEIGHT and animate to 0 on mount (slide-up effect).
+    useNativeDriver:true works because we are only animating `transform`.
+  */
+  const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
-  // Sheet starts off-screen and slides up on mount
-  const slideAnim = useRef(new Animated.Value(SLIDE_START)).current;
-
+  // Slide up on mount
   useEffect(() => {
-    Animated.timing(slideAnim, {
+    Animated.timing(translateY, {
       toValue: 0,
-      duration: 420,
+      duration: 450,
       useNativeDriver: true,
     }).start();
   }, []);
+
+  function showSheet() {
+    setSheetVisible(true);
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 350,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function hideSheet() {
+    Animated.timing(translateY, {
+      toValue: SHEET_HEIGHT,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => setSheetVisible(false));
+  }
+
+  /*
+    PanResponder attached to the drag handle only.
+    - While dragging: move the sheet in real time (clamp to 0 so it can't go above rest)
+    - On release: if dragged more than DRAG_THRESHOLD → hide, otherwise snap back
+  */
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 6,
+      onPanResponderMove: (_, g) => {
+        const next = Math.max(0, g.dy); // can't drag upward past resting point
+        translateY.setValue(next);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > DRAG_THRESHOLD) {
+          hideSheet();
+        } else {
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    }),
+  ).current;
 
   async function goToMyLocation() {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -58,12 +103,6 @@ export default function MapScreen() {
       },
       800,
     );
-    setIsCentred(true); // dot appears
-  }
-
-  // User dragged the map → no longer centred → dot disappears
-  function handleRegionChange() {
-    if (isCentred) setIsCentred(false);
   }
 
   return (
@@ -79,38 +118,51 @@ export default function MapScreen() {
           longitudeDelta: 0.005,
         }}
         showsUserLocation
-        showsMyLocationButton={false} // removes the native duplicate button
-        onRegionChangeComplete={handleRegionChange}
+        showsMyLocationButton={false}
       >
         <Marker
           coordinate={{
             latitude: PARKING_LOT.latitude,
             longitude: PARKING_LOT.longitude,
           }}
-          onPress={() => router.push("/parking/details")}
+          onPress={() => router.push("/details")}
         >
           <ParkingPin />
         </Marker>
       </MapView>
 
-      {/* ── Location error banner ────────────────────────────────────────────── */}
+      {/* ── Location error ────────────────────────────────────────────────────── */}
       {locationError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
         </View>
       )}
 
-      {/* ── Locate button — right side, just above the sheet ────────────────── */}
+      {/*
+        ── Locate button ─────────────────────────────────────────────────────
+        Positioned on the right, just above the bottom sheet.
+        bottom = SHEET_HEIGHT + 12px gap
+      */}
       <TouchableOpacity style={styles.locationButton} onPress={goToMyLocation}>
         <Ionicons name="locate" size={22} color="#1a73e8" />
-        {isCentred && <View style={styles.locateDot} />}
       </TouchableOpacity>
+
+      {/* Re-open button shown only when sheet is hidden */}
+      {!sheetVisible && (
+        <TouchableOpacity style={styles.reopenButton} onPress={showSheet}>
+          <Ionicons name="chevron-up" size={20} color="#1a73e8" />
+        </TouchableOpacity>
+      )}
 
       {/* ── Animated bottom sheet ────────────────────────────────────────────── */}
       <Animated.View
-        style={[styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}
+        style={[styles.bottomSheet, { transform: [{ translateY }] }]}
       >
-        <View style={styles.sheetHandle} />
+        {/* Drag handle — touch events handled by PanResponder */}
+        <View {...panResponder.panHandlers} style={styles.dragArea}>
+          <View style={styles.sheetHandle} />
+        </View>
+
         <Text style={styles.sheetTitle}>Nearby Parking</Text>
 
         <ScrollView
@@ -121,7 +173,7 @@ export default function MapScreen() {
           <ParkingCard
             name={PARKING_LOT.name}
             totalSpots={PARKING_LOT.totalSpots}
-            onPress={() => router.push("/parking/details")}
+            onPress={() => router.push("/details")}
           />
         </ScrollView>
       </Animated.View>
@@ -137,7 +189,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Locate button ──────────────────────────────────────────────────────────
+  // ── Locate button — right side, just above the sheet ─────────────────────
   locationButton: {
     position: "absolute",
     bottom: SHEET_HEIGHT + 12,
@@ -154,16 +206,23 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  // Dot appears in the centre of the icon ring when map is locked to user
-  locateDot: {
+
+  // ── Reopen button — shown when sheet is dragged away ─────────────────────
+  reopenButton: {
     position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#1a73e8",
-    // centre it inside the 44x44 button
-    top: 18,
-    left: 18,
+    bottom: 16,
+    right: 16,
+    backgroundColor: "#fff",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   // ── Error banner ───────────────────────────────────────────────────────────
@@ -182,31 +241,39 @@ const styles = StyleSheet.create({
   },
 
   // ── Bottom sheet ───────────────────────────────────────────────────────────
+  // Fixed height + bottom:0 + translateY is the reliable animation pattern.
+  // translateY:0 = visible, translateY:SHEET_HEIGHT = hidden below screen.
   bottomSheet: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    height: SHEET_HEIGHT,
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 10,
   },
+
+  // Larger touch target for the drag handle
+  dragArea: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
   sheetHandle: {
     width: 40,
     height: 4,
     backgroundColor: "#ddd",
     borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 12,
   },
+
   sheetTitle: {
     fontSize: 16,
     fontWeight: "600",

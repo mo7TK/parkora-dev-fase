@@ -3,12 +3,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   return (
-    // SafeAreaProvider tells every screen in the app where the system UI
-    // (status bar, Android nav buttons) begins and ends.
-    // Without it, the tab bar overlaps the Android gesture/button bar.
     <SafeAreaProvider>
       <Stack>
+        {/* The tabs group */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+        {/*
+          name="details"  matches  app/details.tsx
+          name="minimap"  matches  app/minimap.tsx
+          Simple flat structure — no subfolders, no ambiguity.
+        */}
         <Stack.Screen name="details" options={{ title: "Parking Details" }} />
         <Stack.Screen name="minimap" options={{ title: "Parking Layout" }} />
       </Stack>
