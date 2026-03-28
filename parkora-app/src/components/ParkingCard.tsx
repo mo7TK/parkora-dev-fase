@@ -34,6 +34,8 @@ export default function ParkingCard({ name, totalSpots, onPress }: Props) {
       .catch(() => setSummary(null));
   }, []);
 
+  const isNoSpotsAvailable = summary?.free === 0;
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.iconBox}>
@@ -46,7 +48,14 @@ export default function ParkingCard({ name, totalSpots, onPress }: Props) {
         {/* Spots availability — shows free/total once loaded */}
         {summary ? (
           <Text style={styles.spots}>
-            <Text style={styles.spotsNumber}>{summary.free}</Text>
+            <Text
+              style={
+                (styles.spotsNumber,
+                isNoSpotsAvailable && styles.spotsNumberRed)
+              }
+            >
+              {summary.free}
+            </Text>
             <Text style={styles.spotsSlash}> / {totalSpots} </Text>
             <Text style={styles.spotsLabel}>spots free</Text>
           </Text>
@@ -102,6 +111,9 @@ const styles = StyleSheet.create({
   spotsNumber: {
     color: "#2ecc71",
     fontWeight: "700",
+  },
+  spotsNumberRed: {
+    color: "#e74c3c",
   },
   spotsSlash: {
     color: "#aaa",
