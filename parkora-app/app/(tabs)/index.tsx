@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import ParkingPin from "@/src/components/ParkingPin";
 import ParkingCard from "@/src/components/ParkingCard";
+import SearchBar from "@/src/components/SearchBar";
 import { PARKING_LOT } from "@/src/constants/config";
 
 // ── Sheet configuration ───────────────────────────────────────────────────────
@@ -130,6 +131,9 @@ export default function MapScreen() {
           <ParkingPin />
         </Marker>
       </MapView>
+
+      {/* ── Search bar ──────────────────────────────────────────────────────── */}
+      <SearchBar />
 
       {/* ── Location error ────────────────────────────────────────────────────── */}
       {locationError && (

@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Linking,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 
 import { BACKEND_URL, PARKING_LOT } from "@/src/constants/config";
@@ -23,7 +26,6 @@ export default function Details() {
   const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
-    // One GET request when the screen loads — no WebSocket needed here
     fetch(`${BACKEND_URL}/spots-summary`)
       .then((res) => res.json())
       .then((data) => setSummary(data))
@@ -31,7 +33,6 @@ export default function Details() {
   }, []);
 
   function handleNavigate() {
-    // Opens Google Maps (or Apple Maps on iOS) with the parking coordinates
     const url = `https://www.google.com/maps/dir/?api=1&destination=${PARKING_LOT.latitude},${PARKING_LOT.longitude}`;
     Linking.openURL(url);
   }
@@ -41,13 +42,37 @@ export default function Details() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.name}>{PARKING_LOT.name}</Text>
-      <Text style={styles.subtitle}>
-        Tap navigate to get directions to the entrance
-      </Text>
+    /*
+      ScrollView wraps everything so the content below the hero image
+      can scroll on small screens.
+    */
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {/* ── Hero image ──────────────────────────────────────────────────────── */}
+      {/*
+        The hero is a fixed-height block.
+        The Image fills it completely.
+        LinearGradient sits on top of the image (absolute) and fades from
+        transparent at the top to a dark color at the bottom so the
+        parking name text is always readable.
+      */}
+      <View style={styles.hero}>
+        <Image
+          source={require("@/assets/images/parking_entrance.jpg")}
+          style={styles.heroImage}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.72)"]}
+          style={styles.heroGradient}
+        >
+          <Text style={styles.heroName}>{PARKING_LOT.name}</Text>
+          <Text style={styles.heroSubtitle}>
+            Tap navigate to get directions to the entrance
+          </Text>
+        </LinearGradient>
+      </View>
 
-      {/* Stats card */}
+      {/* ── Stats card ──────────────────────────────────────────────────────── */}
       <View style={styles.card}>
         <View style={styles.cardRow}>
           <View style={styles.statItem}>
@@ -83,38 +108,60 @@ export default function Details() {
         </View>
       </View>
 
-      {/* Navigate button */}
+      {/* ── Buttons ─────────────────────────────────────────────────────────── */}
       <TouchableOpacity style={styles.buttonNavigate} onPress={handleNavigate}>
         <Text style={styles.buttonTextWhite}>Navigate to Parking</Text>
       </TouchableOpacity>
 
-      {/* View layout button */}
       <TouchableOpacity style={styles.buttonLayout} onPress={handleViewLayout}>
         <Text style={styles.buttonTextDark}>View Parking Layout</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: "#f4f4f4",
-    paddingTop: 60,
-    paddingHorizontal: 20,
+  },
+  content: {
+    paddingBottom: 40,
   },
 
-  // ── Header ────────────────────────────────────────────────────────────────
-  name: {
-    fontSize: 28,
+  // ── Hero ──────────────────────────────────────────────────────────────────
+  hero: {
+    width: "100%",
+    height: 260,
+  },
+  heroImage: {
+    width: "100%",
+    height: "100%",
+  },
+  /*
+    LinearGradient is position:absolute so it overlays the image.
+    It starts at 60% down the image (transparent) and reaches full
+    opacity at the very bottom — giving a natural fade-to-dark effect.
+  */
+  heroGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "60%",
+    justifyContent: "flex-end",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  heroName: {
+    fontSize: 26,
     fontWeight: "700",
-    color: "#1a1a2e",
+    color: "#fff",
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 24,
+  heroSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.78)",
   },
 
   // ── Stats card ────────────────────────────────────────────────────────────
@@ -122,6 +169,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 14,
     padding: 20,
+    marginHorizontal: 16,
+    marginTop: 20,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -165,6 +214,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
+    marginHorizontal: 16,
     marginBottom: 12,
   },
   buttonLayout: {
@@ -172,6 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
+    marginHorizontal: 16,
     borderWidth: 1,
     borderColor: "#ddd",
   },
@@ -184,13 +235,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#1a1a2e",
-  },
-
-  // ── Loading / error ───────────────────────────────────────────────────────
-  loadingText: {
-    fontSize: 14,
-    color: "#aaa",
-    textAlign: "center",
-    marginTop: 8,
   },
 });
