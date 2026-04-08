@@ -1,6 +1,6 @@
 // ── Backend ───────────────────────────────────────────────────────────────────
 // Replace with your computer's local IP (run `ipconfig` on Windows)
-export const BACKEND_IP = "192.168.137.153";
+export const BACKEND_IP = "192.168.1.38";
 export const BACKEND_URL = `http://${BACKEND_IP}:8000`;
 export const WS_URL = `ws://${BACKEND_IP}:8000/ws`;
 

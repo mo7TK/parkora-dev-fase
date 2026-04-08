@@ -3,3 +3,9 @@ ultralytics
 requests
 fastapi
 uvicorn[standard]
+motor
+pymongo
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
