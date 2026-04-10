@@ -145,6 +145,17 @@ export default function MapScreen() {
           longitudeDelta: 0.012,
         };
 
+  const [pinFreeSpots, setPinFreeSpots] = useState<Record<string, number>>({});
+  useEffect(() => {
+    lots.forEach((lot) => {
+      fetch(`${BACKEND_URL}/spots-summary/${lot.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setPinFreeSpots((prev) => ({ ...prev, [lot.id]: data.free }));
+        });
+    });
+  }, [lots]);
+
   return (
     <View style={styles.container}>
       {/* ── Fullscreen map ──────────────────────────────────────────────────── */}
@@ -161,7 +172,7 @@ export default function MapScreen() {
             coordinate={{ latitude: lot.latitude, longitude: lot.longitude }}
             onPress={() => openDetails(lot)}
           >
-            <ParkingPin />
+            <ParkingPin freeSpots={pinFreeSpots[lot.id]} />
           </Marker>
         ))}
       </MapView>

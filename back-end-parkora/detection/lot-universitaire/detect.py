@@ -26,7 +26,7 @@ INFER_EVERY = 5     # run YOLO only on every Nth frame
 INFER_WIDTH = 640   # resize frame to this width before inference (None = original)
 
 # ── COCO class IDs ───────────────────────────────────────────────────────────
-VEHICLE_CLASSES = {2, 3, 5, 7, 67}
+VEHICLE_CLASSES = {2, 3, 5, 7}
 # ─────────────────────────────────────────────────────────────────────────────
 
 

@@ -62,7 +62,7 @@ export default function Details() {
       {/* ── Hero image ──────────────────────────────────────────────────────── */}
       <View style={styles.hero}>
         <Image
-          source={require("@/assets/images/parking_entrance.jpg")}
+          source={require("@/assets/images/entrance/parking_entrance_univ.jpg")}
           style={styles.heroImage}
           resizeMode="cover"
         />

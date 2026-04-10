@@ -1,23 +1,34 @@
 import { StyleSheet, Text, View } from "react-native";
 
 type Props = {
-  /** When provided, shows the free spot count below the P */
   freeSpots?: number;
 };
 
 export default function ParkingPin({ freeSpots }: Props) {
+  const hasBadge = freeSpots !== undefined;
+  const isFull = hasBadge && freeSpots === 0;
+  const pillColor = isFull ? "#c0392b" : "#02a31d";
+  const countColor = isFull ? "#ffb3af" : "rgb(255, 255, 255)";
+
   return (
     <View style={styles.wrapper}>
-      <View style={styles.pin}>
-        <Text style={styles.pinText}>P</Text>
+      <View style={[styles.pill, { backgroundColor: pillColor }]}>
+        {/* P label */}
+        <Text style={styles.pText}>P</Text>
+
+        {/* Divider + count — only when freeSpots is provided */}
+        {hasBadge && (
+          <>
+            <View style={styles.divider} />
+            <Text style={[styles.countText, { color: countColor }]}>
+              {freeSpots}
+            </Text>
+          </>
+        )}
       </View>
-      {freeSpots !== undefined && (
-        <View style={[styles.badge, freeSpots === 0 && styles.badgeFull]}>
-          <Text style={styles.badgeText}>{freeSpots}</Text>
-        </View>
-      )}
-      {/* Small triangle pointer below the pin */}
-      <View style={styles.pointer} />
+
+      {/* Downward triangle pointer */}
+      <View style={[styles.pointer, { borderTopColor: pillColor }]} />
     </View>
   );
 }
@@ -26,57 +37,45 @@ const styles = StyleSheet.create({
   wrapper: {
     alignItems: "center",
   },
-  pin: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#1a73e8",
-    justifyContent: "center",
+
+  pill: {
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2.5,
+    height: 25,
+    borderRadius: 13,
+    paddingHorizontal: 5,
+    borderWidth: 1.5,
     borderColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 6,
+    gap: 2,
   },
-  pinText: {
-    fontSize: 20,
+
+  pText: {
+    fontSize: 13,
     fontWeight: "800",
     color: "#fff",
+    lineHeight: 16,
   },
+
+  divider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
+
+  countText: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+
   pointer: {
     width: 0,
     height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 8,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 7,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: "#1a73e8",
     marginTop: -1,
-  },
-  badge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    backgroundColor: "#2ecc71",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#fff",
-  },
-  badgeFull: {
-    backgroundColor: "#e74c3c",
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#fff",
   },
 });

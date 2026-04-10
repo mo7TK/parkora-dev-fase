@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,7 +11,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { BACKEND_URL } from "@/src/constants/config";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type Props = {
   lotId: string;
   name: string;
@@ -23,7 +23,12 @@ type Summary = {
   occupied: number;
   total: number;
 };
-// ─────────────────────────────────────────────────────────────────────────────
+
+function getAccent(free: number, total: number) {
+  if (free === 0) return "#ef4444";
+  if (free / total < 0.3) return "#f97316";
+  return "#22c55e";
+}
 
 export default function ParkingCard({
   lotId,
@@ -32,15 +37,23 @@ export default function ParkingCard({
   onPress,
 }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const barAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetch(`${BACKEND_URL}/spots-summary/${lotId}`)
-      .then((res) => res.json())
-      .then((data) => setSummary(data))
+      .then((r) => r.json())
+      .then((data: Summary) => {
+        setSummary(data);
+        Animated.timing(barAnim, {
+          toValue: data.total > 0 ? data.free / data.total : 0,
+          duration: 600,
+          useNativeDriver: false,
+        }).start();
+      })
       .catch(() => setSummary(null));
   }, [lotId]);
 
-  const isNoSpotsAvailable = summary?.free === 0;
+  const accent = summary ? getAccent(summary.free, summary.total) : "#1a73e8";
 
   return (
     <TouchableOpacity
@@ -48,114 +61,114 @@ export default function ParkingCard({
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {/* Left — P icon */}
-      <View style={styles.iconBox}>
-        <Text style={styles.iconText}>P</Text>
+      {/* Left accent bar */}
+      <View style={[styles.accentBar, { backgroundColor: accent }]} />
+
+      {/* Icon */}
+      <View style={[styles.iconWrap, { backgroundColor: accent + "18" }]}>
+        <Text style={[styles.iconLetter, { color: accent }]}>P</Text>
       </View>
 
-      {/* Middle — name + availability */}
-      <View style={styles.info}>
+      {/* Content */}
+      <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
 
         {summary ? (
-          <View style={styles.spotsRow}>
-            <View
-              style={[
-                styles.dot,
-                isNoSpotsAvailable ? styles.dotRed : styles.dotGreen,
-              ]}
-            />
-            <Text style={styles.spotsText}>
-              <Text
-                style={[
-                  styles.spotsCount,
-                  isNoSpotsAvailable && styles.spotsCountRed,
-                ]}
-              >
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.freeCount, { color: accent }]}>
                 {summary.free}
-              </Text>{" "}
-              / {totalSpots} free
-            </Text>
-          </View>
+              </Text>
+              <Text style={styles.totalCount}> / {totalSpots} free</Text>
+            </View>
+            <View style={styles.barTrack}>
+              <Animated.View
+                style={[
+                  styles.barFill,
+                  { backgroundColor: accent, flex: barAnim },
+                ]}
+              />
+            </View>
+          </>
         ) : (
           <ActivityIndicator
             size="small"
             color="#1a73e8"
-            style={styles.loader}
+            style={{ alignSelf: "flex-start" }}
           />
         )}
       </View>
 
-      {/* Right — chevron */}
-      <Ionicons name="chevron-forward" size={18} color="#bbb" />
+      <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    width: 220,
+    height: 100,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    width: 230,
+    borderRadius: 16,
+    overflow: "hidden",
+    paddingRight: 12,
+    gap: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#1a73e8",
+  accentBar: {
+    width: 4,
+    alignSelf: "stretch",
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
   },
-  iconText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "700",
+  iconLetter: {
+    fontSize: 18,
+    fontWeight: "800",
   },
-  info: {
+  content: {
     flex: 1,
+    gap: 4,
   },
   name: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1a1a2e",
-    marginBottom: 4,
-  },
-  spotsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dotGreen: { backgroundColor: "#2ecc71" },
-  dotRed: { backgroundColor: "#e74c3c" },
-  spotsText: {
-    fontSize: 12,
-    color: "#888",
-  },
-  spotsCount: {
+    fontSize: 13,
     fontWeight: "700",
-    color: "#2ecc71",
+    color: "#0f172a",
+    letterSpacing: -0.2,
   },
-  spotsCountRed: {
-    color: "#e74c3c",
+  row: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
-  loader: {
-    alignSelf: "flex-start",
-    marginTop: 2,
+  freeCount: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  totalCount: {
+    fontSize: 12,
+    color: "#94a3b8",
+    fontWeight: "500",
+  },
+  barTrack: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#f1f5f9",
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  barFill: {
+    borderRadius: 2,
   },
 });

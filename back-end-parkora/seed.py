@@ -18,25 +18,30 @@ async def seed():
     client = AsyncIOMotorClient(MONGO_URL)
     db     = client[DB_NAME]
 
-    # Don't insert duplicates if you run this more than once
-    existing = await db.parking_lots.find_one({"name": "Parking Universitaire"})
-    if existing:
-        print(f"Already exists. id = {existing['_id']}")
-        print("Copy this id into detect.py as PARKING_LOT_ID.")
-        client.close()
-        return
+    lots = [
+        {
+            "name":        "Parking Universitaire",
+            "latitude":    36.75000775277104,
+            "longitude":   5.039663538251243,
+            "total_spots": 14,
+        },
+        {
+            "name":        "EPB Parking",
+            "latitude":    36.749501073051476,
+            "longitude":   5.084449139852327,
+            "total_spots": 20,
+        }
+    ]
 
-    lot = {
-        "name":        "Parking Universitaire",
-        "latitude":    36.75000775277104,
-        "longitude":   5.039663538251243,
-        "total_spots": 14,
-    }
+    for lot in lots:
+        existing = await db.parking_lots.find_one({"name": lot["name"]})
+        if existing:
+            print(f"'{lot['name']}' already exists. id = {existing['_id']}")
+        else:
+            result = await db.parking_lots.insert_one(lot)
+            print(f"Inserted '{lot['name']}'. id = {result.inserted_id}")
 
-    result = await db.parking_lots.insert_one(lot)
-    print(f"Parking lot inserted.")
-    print(f"id = {result.inserted_id}")
-    print(f"\nCopy this id into detect.py as PARKING_LOT_ID.")
+    print(f"\nCopy the desired id into detect.py as PARKING_LOT_ID.")
     client.close()
 
 
