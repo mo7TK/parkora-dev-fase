@@ -17,56 +17,38 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useLocalSearchParams } from "expo-router";
 
-import { WS_URL } from "@/src/constants/config";
+import { WS_BASE_URL } from "@/src/constants/config";
+import { MINIMAP_IMAGES } from "@/src/constants/minimapImages";
+import { SPOT_CONFIGS } from "@/src/constants/spotPositions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Spot = { id: number; status: "free" | "occupied" };
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 // ─────────────────────────────────────────────────────────────────────────────
 
-/*
-  ── Spot positions ─────────────────────────────────────────────────────────────
-  Each value is a percentage of the image width (x) and height (y).
-  0% = top-left corner, 100% = bottom-right corner.
-
-  If a spot indicator looks off, just tweak the x/y value here.
-  No other part of the code needs to change.
-
-  Layout from the image:
-    Spots  1–9  → right column, numbered bottom to top
-    Spots 10–14 → top row, numbered right to left
-*/
-const SPOT_POSITIONS: Record<number, { x: number; y: number }> = {
-  1: { x: 68, y: 61.9 },
-  2: { x: 70, y: 56.9 },
-  3: { x: 72, y: 51.7 },
-  4: { x: 74, y: 46.5 },
-  5: { x: 76, y: 41.3 },
-  6: { x: 78, y: 36.1 },
-  7: { x: 80, y: 30.8 },
-  8: { x: 82, y: 25.6 },
-  9: { x: 84, y: 20.4 },
-  10: { x: 61.4, y: 9.6 },
-  11: { x: 51.4, y: 8.2 },
-  12: { x: 40.9, y: 6.8 },
-  13: { x: 30.1, y: 5.3 },
-  14: { x: 19.6, y: 4 },
-};
-
-const IMAGE_NATURAL_WIDTH = 735;
-const IMAGE_NATURAL_HEIGHT = 1305;
+const DOT_SIZE = 28;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-const IMAGE_DISPLAY_WIDTH = SCREEN_WIDTH;
-const IMAGE_DISPLAY_HEIGHT =
-  (IMAGE_NATURAL_HEIGHT / IMAGE_NATURAL_WIDTH) * IMAGE_DISPLAY_WIDTH;
-
-const DOT_SIZE = 28;
 
 export default function MiniMap() {
+  // lotId is passed from the details screen
+  const { lotId } = useLocalSearchParams<{ lotId: string }>();
+
+  // ── Look up config for this specific lot ────────────────────────────────────
+  const mapImage = lotId ? MINIMAP_IMAGES[lotId] : null;
+  const lotConfig = lotId ? SPOT_CONFIGS[lotId] : null;
+
+  // Compute the display size preserving the image's natural aspect ratio
+  const imageDisplayWidth = SCREEN_WIDTH;
+  const imageDisplayHeight = lotConfig
+    ? (lotConfig.imageHeight / lotConfig.imageWidth) * imageDisplayWidth
+    : SCREEN_HEIGHT;
+
+  // ── Spot state ───────────────────────────────────────────────────────────────
   const [spots, setSpots] = useState<Spot[]>([]);
-  const [connectionStatus, setConnectionStatus] =
+  const [connectionStatus, setStatus] =
     useState<ConnectionStatus>("connecting");
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -78,7 +60,7 @@ export default function MiniMap() {
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
-  // ── Pinch gesture (zoom) ────────────────────────────────────────────────────
+  // ── Pinch (zoom) ─────────────────────────────────────────────────────────────
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
       scale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 4);
@@ -87,7 +69,7 @@ export default function MiniMap() {
       savedScale.value = scale.value;
     });
 
-  // ── Pan gesture (drag) ──────────────────────────────────────────────────────
+  // ── Pan (drag) ───────────────────────────────────────────────────────────────
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       translateX.value = savedTranslateX.value + e.translationX;
@@ -108,7 +90,7 @@ export default function MiniMap() {
     ],
   }));
 
-  // ── Reset view ──────────────────────────────────────────────────────────────
+  // ── Reset view ───────────────────────────────────────────────────────────────
   function resetView() {
     scale.value = withTiming(1);
     translateX.value = withTiming(0);
@@ -118,17 +100,19 @@ export default function MiniMap() {
     savedTranslateY.value = 0;
   }
 
-  // ── WebSocket ───────────────────────────────────────────────────────────────
+  // ── WebSocket — connects to /ws/{lotId} ──────────────────────────────────────
   useEffect(() => {
+    if (!lotId) return;
+
     function connect() {
-      setConnectionStatus("connecting");
-      const ws = new WebSocket(WS_URL);
+      setStatus("connecting");
+      const ws = new WebSocket(`${WS_BASE_URL}/${lotId}`);
       wsRef.current = ws;
 
-      ws.onopen = () => setConnectionStatus("connected");
+      ws.onopen = () => setStatus("connected");
       ws.onmessage = (e) => setSpots(JSON.parse(e.data).spots);
       ws.onclose = () => {
-        setConnectionStatus("disconnected");
+        setStatus("disconnected");
         setTimeout(connect, 3000);
       };
       ws.onerror = () => ws.close();
@@ -136,7 +120,7 @@ export default function MiniMap() {
 
     connect();
     return () => wsRef.current?.close();
-  }, []);
+  }, [lotId]);
 
   const statusColor = {
     connecting: "#f0a500",
@@ -147,41 +131,44 @@ export default function MiniMap() {
   const freeCount = spots.filter((s) => s.status === "free").length;
   const occupiedCount = spots.filter((s) => s.status === "occupied").length;
 
+  // ── Guard: no config for this lot ───────────────────────────────────────────
+  if (!mapImage || !lotConfig) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Map not configured</Text>
+        <Text style={styles.errorBody}>
+          No minimap image or spot positions found for this parking lot.{"\n"}
+          Add an entry to minimapImages.ts and spotPositions.ts.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* ── Full screen map ─────────────────────────────────────────────────── */}
-      {/*
-        mapClip fills the entire screen.
-        overflow:hidden ensures the image doesn't bleed outside when zoomed.
-      */}
+      {/* ── Full-screen map ─────────────────────────────────────────────────── */}
       <View style={styles.mapClip}>
         <GestureDetector gesture={composedGesture}>
-          {/*
-            Single Animated.View that receives pan + zoom transforms.
-            Both the image and the spot overlays live inside it so
-            they move and scale together as one unit.
-          */}
           <Animated.View
             style={[
-              { width: IMAGE_DISPLAY_WIDTH, height: IMAGE_DISPLAY_HEIGHT },
+              { width: imageDisplayWidth, height: imageDisplayHeight },
               animatedStyle,
             ]}
           >
+            {/* Map image */}
             <Image
-              source={require("@/assets/images/parking_map.png")}
-              style={{
-                width: IMAGE_DISPLAY_WIDTH,
-                height: IMAGE_DISPLAY_HEIGHT,
-              }}
+              source={mapImage}
+              style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
               resizeMode="cover"
             />
 
+            {/* Spot dots — positioned using % of the display image size */}
             {spots.map((spot) => {
-              const pos = SPOT_POSITIONS[spot.id];
+              const pos = lotConfig.positions[spot.id];
               if (!pos) return null;
 
-              const left = (pos.x / 100) * IMAGE_DISPLAY_WIDTH - DOT_SIZE / 2;
-              const top = (pos.y / 100) * IMAGE_DISPLAY_HEIGHT - DOT_SIZE / 2;
+              const left = (pos.x / 100) * imageDisplayWidth - DOT_SIZE / 2;
+              const top = (pos.y / 100) * imageDisplayHeight - DOT_SIZE / 2;
 
               return (
                 <View
@@ -204,12 +191,7 @@ export default function MiniMap() {
         </GestureDetector>
       </View>
 
-      {/* ── Floating top overlay: connection status + free/occupied counts ─── */}
-      {/*
-        position:absolute + top:60 places this pill just below the
-        native navigation header that expo-router renders for this screen.
-        It floats above the map without pushing any layout.
-      */}
+      {/* ── Floating status pill ─────────────────────────────────────────────── */}
       <View style={styles.topOverlay}>
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
@@ -231,16 +213,16 @@ export default function MiniMap() {
         )}
       </View>
 
-      {/* ── Waiting state ──────────────────────────────────────────────────── */}
+      {/* ── Waiting message ──────────────────────────────────────────────────── */}
       {spots.length === 0 && (
         <View style={styles.waiting}>
           <Text style={styles.waitingText}>
-            Waiting for detection data...{"\n"}Make sure detect.py is running.
+            Waiting for detection data…{"\n"}Make sure detect.py is running.
           </Text>
         </View>
       )}
 
-      {/* ── Reset View floating button ─────────────────────────────────────── */}
+      {/* ── Reset view button ────────────────────────────────────────────────── */}
       <TouchableOpacity style={styles.resetButton} onPress={resetView}>
         <Text style={styles.resetButtonText}>⊙ Reset View</Text>
       </TouchableOpacity>
@@ -249,18 +231,16 @@ export default function MiniMap() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
 
-  // ── Map (full screen) ─────────────────────────────────────────────────────
+  // ── Map ───────────────────────────────────────────────────────────────────
   mapClip: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     overflow: "hidden",
   },
 
-  // ── Spot indicator dot ────────────────────────────────────────────────────
+  // ── Spot dot ──────────────────────────────────────────────────────────────
   spotDot: {
     position: "absolute",
     width: DOT_SIZE,
@@ -282,7 +262,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // ── Top floating pill ─────────────────────────────────────────────────────
+  // ── Status pill ──────────────────────────────────────────────────────────
   topOverlay: {
     position: "absolute",
     top: 30,
@@ -311,7 +291,6 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
     fontWeight: "500",
   },
-  // thin vertical line between the status and the counts
   separator: {
     width: 1,
     height: 16,
@@ -335,7 +314,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // ── Waiting state ─────────────────────────────────────────────────────────
+  // ── Waiting ───────────────────────────────────────────────────────────────
   waiting: {
     position: "absolute",
     bottom: 100,
@@ -373,5 +352,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#1a73e8",
+  },
+
+  // ── Error state ───────────────────────────────────────────────────────────
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f4f4f4",
+    padding: 32,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1a1a2e",
+    marginBottom: 12,
+  },
+  errorBody: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    lineHeight: 22,
   },
 });

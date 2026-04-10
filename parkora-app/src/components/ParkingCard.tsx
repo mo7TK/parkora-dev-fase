@@ -7,10 +7,12 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
 import { BACKEND_URL } from "@/src/constants/config";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Props = {
+  lotId: string;
   name: string;
   totalSpots: number;
   onPress: () => void;
@@ -23,42 +25,60 @@ type Summary = {
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ParkingCard({ name, totalSpots, onPress }: Props) {
+export default function ParkingCard({
+  lotId,
+  name,
+  totalSpots,
+  onPress,
+}: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
-    // Same HTTP GET used in details.tsx — one request on mount, no WebSocket needed
-    fetch(`${BACKEND_URL}/spots-summary`)
+    fetch(`${BACKEND_URL}/spots-summary/${lotId}`)
       .then((res) => res.json())
       .then((data) => setSummary(data))
       .catch(() => setSummary(null));
-  }, []);
+  }, [lotId]);
 
   const isNoSpotsAvailable = summary?.free === 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {/* Left — P icon */}
       <View style={styles.iconBox}>
         <Text style={styles.iconText}>P</Text>
       </View>
 
+      {/* Middle — name + availability */}
       <View style={styles.info}>
-        <Text style={styles.name}>{name}</Text>
+        <Text style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
 
-        {/* Spots availability — shows free/total once loaded */}
         {summary ? (
-          <Text style={styles.spots}>
-            <Text
-              style={
-                (styles.spotsNumber,
-                isNoSpotsAvailable && styles.spotsNumberRed)
-              }
-            >
-              {summary.free}
+          <View style={styles.spotsRow}>
+            <View
+              style={[
+                styles.dot,
+                isNoSpotsAvailable ? styles.dotRed : styles.dotGreen,
+              ]}
+            />
+            <Text style={styles.spotsText}>
+              <Text
+                style={[
+                  styles.spotsCount,
+                  isNoSpotsAvailable && styles.spotsCountRed,
+                ]}
+              >
+                {summary.free}
+              </Text>{" "}
+              / {totalSpots} free
             </Text>
-            <Text style={styles.spotsSlash}> / {totalSpots} </Text>
-            <Text style={styles.spotsLabel}>spots free</Text>
-          </Text>
+          </View>
         ) : (
           <ActivityIndicator
             size="small"
@@ -68,7 +88,8 @@ export default function ParkingCard({ name, totalSpots, onPress }: Props) {
         )}
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color="#aaa" />
+      {/* Right — chevron */}
+      <Ionicons name="chevron-forward" size={18} color="#bbb" />
     </TouchableOpacity>
   );
 }
@@ -77,23 +98,28 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f8f8",
-    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderRadius: 14,
     padding: 14,
     gap: 12,
-    width: 220, // fixed width so cards don't stretch in horizontal scroll
+    width: 230,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 3,
   },
   iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#1a73e8",
     justifyContent: "center",
     alignItems: "center",
   },
   iconText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
   },
   info: {
@@ -103,23 +129,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#1a1a2e",
-    marginBottom: 3,
+    marginBottom: 4,
   },
-  spots: {
-    fontSize: 13,
+  spotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
-  spotsNumber: {
-    color: "#2ecc71",
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dotGreen: { backgroundColor: "#2ecc71" },
+  dotRed: { backgroundColor: "#e74c3c" },
+  spotsText: {
+    fontSize: 12,
+    color: "#888",
+  },
+  spotsCount: {
     fontWeight: "700",
+    color: "#2ecc71",
   },
-  spotsNumberRed: {
+  spotsCountRed: {
     color: "#e74c3c",
-  },
-  spotsSlash: {
-    color: "#aaa",
-  },
-  spotsLabel: {
-    color: "#aaa",
   },
   loader: {
     alignSelf: "flex-start",

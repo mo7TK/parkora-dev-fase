@@ -10,9 +10,9 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
-import { BACKEND_URL, PARKING_LOT } from "@/src/constants/config";
+import { BACKEND_URL } from "@/src/constants/config";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Summary = {
@@ -23,38 +23,43 @@ type Summary = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Details() {
+  // Route params passed by the map screen when a marker or card is tapped.
+  // Using string type because Expo Router passes all params as strings.
+  const { lotId, name, totalSpots, latitude, longitude } =
+    useLocalSearchParams<{
+      lotId: string;
+      name: string;
+      totalSpots: string;
+      latitude: string;
+      longitude: string;
+    }>();
+
   const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/spots-summary`)
+    if (!lotId) return;
+    fetch(`${BACKEND_URL}/spots-summary/${lotId}`)
       .then((res) => res.json())
       .then((data) => setSummary(data))
       .catch(() => setSummary(null));
-  }, []);
+  }, [lotId]);
 
   function handleNavigate() {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${PARKING_LOT.latitude},${PARKING_LOT.longitude}`;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
     Linking.openURL(url);
   }
 
   function handleViewLayout() {
-    router.push("/minimap");
+    // Forward the lotId so minimap knows which config and image to load.
+    router.push({
+      pathname: "/(parking)/minimap",
+      params: { lotId },
+    });
   }
 
   return (
-    /*
-      ScrollView wraps everything so the content below the hero image
-      can scroll on small screens.
-    */
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {/* ── Hero image ──────────────────────────────────────────────────────── */}
-      {/*
-        The hero is a fixed-height block.
-        The Image fills it completely.
-        LinearGradient sits on top of the image (absolute) and fades from
-        transparent at the top to a dark color at the bottom so the
-        parking name text is always readable.
-      */}
       <View style={styles.hero}>
         <Image
           source={require("@/assets/images/parking_entrance.jpg")}
@@ -65,7 +70,7 @@ export default function Details() {
           colors={["transparent", "rgba(0,0,0,0.72)"]}
           style={styles.heroGradient}
         >
-          <Text style={styles.heroName}>{PARKING_LOT.name}</Text>
+          <Text style={styles.heroName}>{name}</Text>
           <Text style={styles.heroSubtitle}>
             Tap navigate to get directions to the entrance
           </Text>
@@ -75,16 +80,18 @@ export default function Details() {
       {/* ── Stats card ──────────────────────────────────────────────────────── */}
       <View style={styles.card}>
         <View style={styles.cardRow}>
+          {/* Total */}
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{PARKING_LOT.totalSpots}</Text>
-            <Text style={styles.statLabel}>Total spots</Text>
+            <Text style={styles.statNumber}>{totalSpots}</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
 
           <View style={styles.divider} />
 
+          {/* Free */}
           <View style={styles.statItem}>
             {summary ? (
-              <Text style={[styles.statNumber, styles.statNumberFree]}>
+              <Text style={[styles.statNumber, styles.statFree]}>
                 {summary.free}
               </Text>
             ) : (
@@ -95,9 +102,10 @@ export default function Details() {
 
           <View style={styles.divider} />
 
+          {/* Occupied */}
           <View style={styles.statItem}>
             {summary ? (
-              <Text style={[styles.statNumber, styles.statNumberOccupied]}>
+              <Text style={[styles.statNumber, styles.statOccupied]}>
                 {summary.occupied}
               </Text>
             ) : (
@@ -108,7 +116,24 @@ export default function Details() {
         </View>
       </View>
 
-      {/* ── Buttons ─────────────────────────────────────────────────────────── */}
+      {/* ── Availability bar ─────────────────────────────────────────────────── */}
+      {summary && Number(totalSpots) > 0 && (
+        <View style={styles.barWrap}>
+          <View style={styles.barTrack}>
+            <View
+              style={[
+                styles.barFill,
+                { width: `${(summary.free / Number(totalSpots)) * 100}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.barLabel}>
+            {Math.round((summary.free / Number(totalSpots)) * 100)}% available
+          </Text>
+        </View>
+      )}
+
+      {/* ── Action buttons ───────────────────────────────────────────────────── */}
       <TouchableOpacity style={styles.buttonNavigate} onPress={handleNavigate}>
         <Text style={styles.buttonTextWhite}>Navigate to Parking</Text>
       </TouchableOpacity>
@@ -138,11 +163,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  /*
-    LinearGradient is position:absolute so it overlays the image.
-    It starts at 60% down the image (transparent) and reaches full
-    opacity at the very bottom — giving a natural fade-to-dark effect.
-  */
   heroGradient: {
     position: "absolute",
     bottom: 0,
@@ -171,7 +191,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginHorizontal: 16,
     marginTop: 20,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -191,12 +211,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#2e1a1a",
   },
-  statNumberFree: {
-    color: "#2ecc71",
-  },
-  statNumberOccupied: {
-    color: "#bc1300",
-  },
+  statFree: { color: "#2ecc71" },
+  statOccupied: { color: "#bc1300" },
   statLabel: {
     fontSize: 12,
     color: "#888",
@@ -206,6 +222,28 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: "#eee",
     marginVertical: 4,
+  },
+
+  // ── Availability bar ──────────────────────────────────────────────────────
+  barWrap: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    gap: 6,
+  },
+  barTrack: {
+    height: 8,
+    backgroundColor: "#eee",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    backgroundColor: "#2ecc71",
+    borderRadius: 4,
+  },
+  barLabel: {
+    fontSize: 12,
+    color: "#888",
   },
 
   // ── Buttons ───────────────────────────────────────────────────────────────
