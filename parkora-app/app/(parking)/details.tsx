@@ -20,11 +20,14 @@ type Summary = {
   free: number;
   occupied: number;
 };
+
+type ParkingLot = {
+  hero_image: string;
+  minimap_image: string;
+};
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Details() {
-  // Route params passed by the map screen when a marker or card is tapped.
-  // Using string type because Expo Router passes all params as strings.
   const { lotId, name, totalSpots, latitude, longitude } =
     useLocalSearchParams<{
       lotId: string;
@@ -35,6 +38,16 @@ export default function Details() {
     }>();
 
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [lotDetails, setLotDetails] = useState<ParkingLot | null>(null);
+
+  // Fetch full lot details including hero_image and minimap_image
+  useEffect(() => {
+    if (!lotId) return;
+    fetch(`${BACKEND_URL}/parking-lots/${lotId}`)
+      .then((res) => res.json())
+      .then((data) => setLotDetails(data))
+      .catch(() => setLotDetails(null));
+  }, [lotId]);
 
   useEffect(() => {
     if (!lotId) return;
@@ -50,22 +63,31 @@ export default function Details() {
   }
 
   function handleViewLayout() {
-    // Forward the lotId so minimap knows which config and image to load.
+    // Pass minimap_image path so minimap screen can load it dynamically.
     router.push({
       pathname: "/(parking)/minimap",
-      params: { lotId },
+      params: { lotId, minimapImage: lotDetails?.minimap_image ?? "" },
     });
   }
+
+  // Dynamic uri from backend — no static require() needed
+  const heroImageUri = lotDetails?.hero_image
+    ? `${BACKEND_URL}/assets/images/entrance/${lotDetails.hero_image}`
+    : null;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {/* ── Hero image ──────────────────────────────────────────────────────── */}
       <View style={styles.hero}>
-        <Image
-          source={require("@/assets/images/entrance/parking_entrance_univ.jpg")}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
+        {heroImageUri ? (
+          <Image
+            source={{ uri: heroImageUri }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.heroImage, styles.heroPlaceholder]} />
+        )}
         <LinearGradient
           colors={["transparent", "rgba(0,0,0,0.72)"]}
           style={styles.heroGradient}
@@ -162,6 +184,9 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
+  },
+  heroPlaceholder: {
+    backgroundColor: "#ccc",
   },
   heroGradient: {
     position: "absolute",

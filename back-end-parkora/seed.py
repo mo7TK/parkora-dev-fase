@@ -24,12 +24,16 @@ async def seed():
             "latitude":    36.75000775277104,
             "longitude":   5.039663538251243,
             "total_spots": 14,
+            "hero_image":  "parking_entrance_univ.jpg",
+            "minimap_image": "parking_map.png",
         },
         {
             "name":        "EPB Parking",
             "latitude":    36.749501073051476,
             "longitude":   5.084449139852327,
             "total_spots": 20,
+            "hero_image":  "parking_entrance_epb.jpg",
+            "minimap_image": "parking_map_epb.png",
         }
     ]
 

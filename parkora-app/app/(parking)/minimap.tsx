@@ -19,8 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useLocalSearchParams } from "expo-router";
 
-import { WS_BASE_URL } from "@/src/constants/config";
-import { MINIMAP_IMAGES } from "@/src/constants/minimapImages";
+import { BACKEND_URL, WS_BASE_URL } from "@/src/constants/config";
 import { SPOT_CONFIGS } from "@/src/constants/spotPositions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,14 +32,22 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export default function MiniMap() {
-  // lotId is passed from the details screen
-  const { lotId } = useLocalSearchParams<{ lotId: string }>();
+  // lotId and minimapImage are passed from the details screen.
+  // minimapImage is just the filename e.g. "parking_map_epb.png"
+  const { lotId, minimapImage } = useLocalSearchParams<{
+    lotId: string;
+    minimapImage: string;
+  }>();
 
-  // ── Look up config for this specific lot ────────────────────────────────────
-  const mapImage = lotId ? MINIMAP_IMAGES[lotId] : null;
+  // ── Build the image URI from the backend ────────────────────────────────────
+  const mapImageUri =
+    lotId && minimapImage
+      ? `${BACKEND_URL}/assets/images/minimaps/${minimapImage}`
+      : null;
+
+  // ── Look up spot config for this lot ────────────────────────────────────────
   const lotConfig = lotId ? SPOT_CONFIGS[lotId] : null;
 
-  // Compute the display size preserving the image's natural aspect ratio
   const imageDisplayWidth = SCREEN_WIDTH;
   const imageDisplayHeight = lotConfig
     ? (lotConfig.imageHeight / lotConfig.imageWidth) * imageDisplayWidth
@@ -132,13 +139,14 @@ export default function MiniMap() {
   const occupiedCount = spots.filter((s) => s.status === "occupied").length;
 
   // ── Guard: no config for this lot ───────────────────────────────────────────
-  if (!mapImage || !lotConfig) {
+  if (!mapImageUri || !lotConfig) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Map not configured</Text>
         <Text style={styles.errorBody}>
           No minimap image or spot positions found for this parking lot.{"\n"}
-          Add an entry to minimapImages.ts and spotPositions.ts.
+          Make sure the lot has a minimap_image set in the database and an entry
+          in spotPositions.ts.
         </Text>
       </View>
     );
@@ -155,9 +163,9 @@ export default function MiniMap() {
               animatedStyle,
             ]}
           >
-            {/* Map image */}
+            {/* Map image — loaded dynamically via uri */}
             <Image
-              source={mapImage}
+              source={{ uri: mapImageUri }}
               style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
               resizeMode="cover"
             />

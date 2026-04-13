@@ -14,7 +14,7 @@ CONFIDENCE      = 0.35   # YOLO confidence threshold (0 to 1)
 
 # ── Parking lot identity ──────────────────────────────────────────────────────
 # Paste the MongoDB id printed by seed.py here.
-PARKING_LOT_ID  = "69d66286fb20ec39630cff9b"
+PARKING_LOT_ID  = "69d9422ef052a357e475c52b"
 
 # ── Internal secret key ───────────────────────────────────────────────────────
 # Must match INTERNAL_SECRET in your backend .env file.
