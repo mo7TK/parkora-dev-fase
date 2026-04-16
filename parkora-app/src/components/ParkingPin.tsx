@@ -41,16 +41,16 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    height: 25,
+    height: 24,
     borderRadius: 13,
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     borderWidth: 1.5,
     borderColor: "#fff",
-    gap: 2,
+    gap: 1,
   },
 
   pText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "800",
     color: "#fff",
     lineHeight: 16,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
 
   countText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     lineHeight: 16,
   },

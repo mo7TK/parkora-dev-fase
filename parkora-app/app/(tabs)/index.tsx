@@ -12,6 +12,7 @@ import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AntDesign from "@expo/vector-icons/AntDesign";
 
 import ParkingPin from "@/src/components/ParkingPin";
 import ParkingCard from "@/src/components/ParkingCard";
@@ -129,6 +130,21 @@ export default function MapScreen() {
     });
   }
 
+  // ── Handle search selection: fly map to the lot, then open details ──────────
+  function handleSearchSelect(lot: ParkingLot) {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: lot.latitude,
+        longitude: lot.longitude,
+        latitudeDelta: 0.006,
+        longitudeDelta: 0.006,
+      },
+      700,
+    );
+    // Small delay so the user sees the map pan before the screen navigates
+    setTimeout(() => openDetails(lot), 750);
+  }
+
   // ── Initial map region: centre on first lot, or a default ──────────────────
   const initialRegion =
     lots.length > 0
@@ -177,8 +193,8 @@ export default function MapScreen() {
         ))}
       </MapView>
 
-      {/* ── Search bar ──────────────────────────────────────────────────────── */}
-      <SearchBar />
+      {/* ── Search bar — now functional, receives lots + selection handler ─── */}
+      <SearchBar lots={lots} onSelectLot={handleSearchSelect} />
 
       {/* ── Location error banner ────────────────────────────────────────────── */}
       {locationError && (
@@ -193,7 +209,7 @@ export default function MapScreen() {
         onPress={goToMyLocation}
         activeOpacity={0.8}
       >
-        <Ionicons name="locate" size={22} color="#1a73e8" />
+        <AntDesign name="aim" size={22} color="#1a73e8" />
       </TouchableOpacity>
 
       {/* ── Re-open button — shown only when sheet was dragged away ─────────── */}

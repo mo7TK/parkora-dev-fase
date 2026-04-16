@@ -138,7 +138,7 @@ export default function MiniMap() {
   const freeCount = spots.filter((s) => s.status === "free").length;
   const occupiedCount = spots.filter((s) => s.status === "occupied").length;
 
-  // ── Guard: no config for this lot ───────────────────────────────────────────
+  // ── Guard: no URI or no spot config for this lot ─────────────────────────────
   if (!mapImageUri || !lotConfig) {
     return (
       <View style={styles.errorContainer}>
@@ -163,7 +163,7 @@ export default function MiniMap() {
               animatedStyle,
             ]}
           >
-            {/* Map image — loaded dynamically via uri */}
+            {/* Map image — loaded dynamically via backend URI */}
             <Image
               source={{ uri: mapImageUri }}
               style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // ── Status pill ──────────────────────────────────────────────────────────
+  // ── Status pill ───────────────────────────────────────────────────────────
   topOverlay: {
     position: "absolute",
     top: 30,
