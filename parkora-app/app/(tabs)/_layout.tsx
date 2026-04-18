@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ACTIVE_COLOR = "#1a73e8";
@@ -49,9 +49,13 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: "History",
+          title: "Suivi auto",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" color={color} size={size} />
+            <MaterialCommunityIcons
+              name="shield-car"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />

@@ -1,6 +1,6 @@
 // ── Network ───────────────────────────────────────────────────────────────────
 // Replace BACKEND_IP local IP (run `ipconfig` on Windows).
-export const BACKEND_IP = "172.20.10.4";
+export const BACKEND_IP = "192.168.1.41";
 export const BACKEND_URL = `http://${BACKEND_IP}:8000`;
 
 // WS_BASE_URL does NOT include a lot id — that gets appended at runtime.
