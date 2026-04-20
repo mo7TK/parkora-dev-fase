@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
+  Image,
   Keyboard,
   StyleSheet,
   Text,
@@ -96,8 +97,11 @@ export default function SearchBar({ lots, onSelectLot }: Props) {
           </TouchableOpacity>
         )}
 
-        <View style={styles.divider} />
-        <Ionicons name="options-outline" size={18} color="#1a73e8" />
+        <Image
+          source={require("../../assets/images/parkora-logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
 
       {/* ── Results dropdown ──────────────────────────────────────────────────── */}
@@ -196,12 +200,6 @@ const styles = StyleSheet.create({
     color: "#1a1a2e",
     paddingVertical: 0, // prevent Android extra padding
   },
-  divider: {
-    width: 1,
-    height: 22,
-    backgroundColor: "#eee",
-    marginHorizontal: 10,
-  },
 
   // ── Dropdown ──────────────────────────────────────────────────────────────
   dropdown: {
@@ -266,5 +264,12 @@ const styles = StyleSheet.create({
   noResultText: {
     fontSize: 14,
     color: "#bbb",
+  },
+
+  // ── Logo ────────────────────────────────────────────────────────
+  logo: {
+    width: 60,
+    marginLeft: 10,
+    opacity: 0.85,
   },
 });
