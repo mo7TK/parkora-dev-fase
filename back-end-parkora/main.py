@@ -22,7 +22,7 @@ from database import connect_db, close_db
 from routes.auth import router as auth_router               # /auth/register  /auth/login  /auth/me
 from routes.spots import router as spots_router             # /update-spots   /spots-summary  /ws
 from routes.parking_lots import router as parking_lots_router   # /parking-lots
-
+from routes.favorites import router as favorites_router # /favorites
 
 # ── Durée de vie de l'application ─────────────────────────────────────────────
 # Tout ce qui est avant `yield` s'exécute au démarrage du serveur.
@@ -74,7 +74,7 @@ app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 app.include_router(auth_router)            # authentification utilisateurs
 app.include_router(spots_router)           # statut des places en temps réel
 app.include_router(parking_lots_router)    # informations des parkings
-
+app.include_router(favorites_router)       # gestion des parkings favoris par les utilisateurs
 
 # ── Health check ──────────────────────────────────────────────────────────────
 # Route simple pour vérifier que le serveur tourne.

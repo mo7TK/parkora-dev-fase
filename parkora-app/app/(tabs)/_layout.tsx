@@ -41,6 +41,7 @@ export default function TabsLayout() {
         name="favorites"
         options={{
           title: "Favorites",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" color={color} size={size} />
           ),
@@ -63,6 +64,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" color={color} size={size} />
           ),

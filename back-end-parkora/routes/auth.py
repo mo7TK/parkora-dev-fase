@@ -158,6 +158,7 @@ async def register(body: RegisterBody):
         "hashed_password": hash_password(body.password),   # ← bcrypt
         "avatar":          body.avatar,
         "plate":           body.plate.strip(),
+        "favorites":       [],
     }
 
     # ── Insertion en base et génération du token ──────────────────────────────

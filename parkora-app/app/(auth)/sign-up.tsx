@@ -1,25 +1,11 @@
 /**
  * app/(auth)/sign-up.tsx
- * ───────────────────────
- * Écran d'inscription en 2 étapes avec sélection d'avatar.
- *
- * Étape 1 — Informations personnelles :
- *   prénom, nom, téléphone
- *
- * Étape 2 — Compte et apparence :
- *   email, mot de passe, confirmation, avatar parmi 12 choix, plaque (optionnel)
- *
- * Flux après soumission :
- *   register() → POST /auth/register → token sauvegardé dans SecureStore
- *   → Guard dans _layout.tsx détecte user != null → redirige vers les tabs
- *
- * L'utilisateur est automatiquement connecté après inscription,
- * pas besoin d'un second appel à sign-in.
  */
 
 import { useState } from "react";
 import {
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -34,27 +20,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
 
-// ── Liste des avatars disponibles ─────────────────────────────────────────────
-// Chaque avatar est un emoji + une couleur de fond assortie.
-// L'emoji est stocké en base de données et affiché sur l'écran profil.
-
 const AVATARS: { emoji: string; bg: string }[] = [
-  { emoji: "🧑", bg: "#dbeafe" },
-  { emoji: "👩", bg: "#fce7f3" },
-  { emoji: "👨‍💼", bg: "#d1fae5" },
-  { emoji: "👩‍💼", bg: "#fef9c3" },
-  { emoji: "🧔", bg: "#ede9fe" },
-  { emoji: "👱", bg: "#ffedd5" },
-  { emoji: "👩‍🦱", bg: "#fee2e2" },
+  { emoji: "🧑🏻", bg: "#dbeafe" },
+  { emoji: "👩🏻", bg: "#fce7f3" },
+  { emoji: "🧔🏻", bg: "#d1fae5" },
+  { emoji: "👨🏼", bg: "#fef9c3" },
+  { emoji: "👩🏼", bg: "#fee2e2" },
+  { emoji: "🧑🏼", bg: "#f0fdf4" },
+  { emoji: "🧑🏾", bg: "#fef9c3" },
+  { emoji: "👩🏾", bg: "#ede9fe" },
+  { emoji: "🧔🏾", bg: "#ffedd5" },
   { emoji: "🐱", bg: "#e0f2fe" },
   { emoji: "🐻", bg: "#fef3c7" },
   { emoji: "🦊", bg: "#ffedd5" },
   { emoji: "🐼", bg: "#f0fdf4" },
   { emoji: "🐯", bg: "#fff7ed" },
 ];
-
-// ── Helper : formatage de la plaque algérienne ────────────────────────────────
-// Formate les chiffres saisis en "12345 110 16" automatiquement.
 
 function formatPlate(raw: string): string {
   const d = raw.replace(/\D/g, "").slice(0, 10);
@@ -63,33 +44,25 @@ function formatPlate(raw: string): string {
   return `${d.slice(0, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
 }
 
-// ── Écran principal ───────────────────────────────────────────────────────────
-
 export default function SignUp() {
   const { register } = useAuth();
 
-  // ── État : quelle étape est affichée ─────────────────────────────────────
   const [step, setStep] = useState(1);
 
-  // ── État : champs étape 1 ─────────────────────────────────────────────────
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
 
-  // ── État : champs étape 2 ─────────────────────────────────────────────────
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [plate, setPlate] = useState("");
-  const [avatar, setAvatar] = useState(AVATARS[0]); // sélection par défaut
+  const [avatar, setAvatar] = useState(AVATARS[0]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // ── État : feedback utilisateur ────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // ── Passage à l'étape 2 ───────────────────────────────────────────────────
 
   function goToStep2() {
     if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
@@ -100,10 +73,7 @@ export default function SignUp() {
     setStep(2);
   }
 
-  // ── Soumission finale ─────────────────────────────────────────────────────
-
   async function handleRegister() {
-    // Validations côté client avant d'appeler le backend
     if (!email.trim() || !password) {
       setError("Veuillez remplir tous les champs.");
       return;
@@ -116,10 +86,8 @@ export default function SignUp() {
       setError("Les mots de passe ne correspondent pas.");
       return;
     }
-
     setLoading(true);
     setError("");
-
     try {
       await register({
         first_name: firstName.trim(),
@@ -127,12 +95,10 @@ export default function SignUp() {
         phone: phone.trim(),
         email: email.trim(),
         password,
-        avatar: avatar.emoji, // on envoie uniquement l'emoji, pas la couleur
+        avatar: avatar.emoji,
         plate: plate.trim(),
       });
-      // Succès → Guard dans _layout.tsx redirige automatiquement vers les tabs
     } catch (e: any) {
-      // Ex : "Cet email est déjà utilisé" (HTTP 409 du backend)
       setError(e.message);
     } finally {
       setLoading(false);
@@ -151,9 +117,9 @@ export default function SignUp() {
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ── En-tête avec bouton retour et points d'étapes ────────────────── */}
+          {/* ── En-tête ───────────────────────────────────────────────────── */}
           <View style={s.header}>
-            {/* Retour : étape 2 → étape 1, étape 1 → sign-in */}
+            {/* Bouton retour */}
             <TouchableOpacity
               style={s.backBtn}
               onPress={() => (step === 2 ? setStep(1) : router.back())}
@@ -161,12 +127,15 @@ export default function SignUp() {
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
 
-            <View style={s.logoCircle}>
-              <Text style={s.logoP}>P</Text>
-            </View>
-            <Text style={s.brand}>Parkora</Text>
+            {/* Logo blanc */}
+            <Image
+              source={require("../../assets/images/parkora-logo-white.png")}
+              style={s.logo}
+              resizeMode="contain"
+            />
+            <Text style={s.brand}>Le futur du stationnement est déjà là !</Text>
 
-            {/* Points indicateurs d'étape — le point actif est plus large */}
+            {/* Points d'étapes */}
             <View style={s.dots}>
               <View style={[s.dot, step === 1 && s.dotActive]} />
               <View style={[s.dot, step === 2 && s.dotActive]} />
@@ -256,9 +225,6 @@ export default function SignUp() {
                 <Text style={s.title}>Accès & Avatar</Text>
                 <Text style={s.sub}>Étape 2 / 2 — Compte et apparence</Text>
 
-                {/* ── Sélecteur d'avatar ─────────────────────────────────────
-                    Affiche l'avatar sélectionné en grand, puis la liste
-                    horizontale de tous les choix disponibles.             */}
                 <Text style={s.label}>Choisissez votre avatar</Text>
                 <View style={s.avatarPreview}>
                   <View style={[s.avatarBig, { backgroundColor: avatar.bg }]}>
@@ -285,7 +251,6 @@ export default function SignUp() {
                         onPress={() => setAvatar(item)}
                       >
                         <Text style={s.avatarEmoji}>{item.emoji}</Text>
-                        {/* Coche bleue sur l'avatar sélectionné */}
                         {selected && (
                           <View style={s.avatarCheck}>
                             <Ionicons name="checkmark" size={10} color="#fff" />
@@ -295,8 +260,6 @@ export default function SignUp() {
                     );
                   }}
                 />
-
-                {/* ── Champs sécurité ────────────────────────────────────────── */}
 
                 <Text style={s.label}>Adresse e-mail</Text>
                 <View style={s.field}>
@@ -372,7 +335,6 @@ export default function SignUp() {
                     />
                   </TouchableOpacity>
                 </View>
-                {/* Message inline sous le champ de confirmation */}
                 {confirm.length > 0 && password !== confirm && (
                   <Text style={s.mismatch}>
                     Les mots de passe ne correspondent pas
@@ -382,11 +344,9 @@ export default function SignUp() {
                   <Text style={s.match}>✓ Mots de passe identiques</Text>
                 )}
 
-                {/* ── Plaque d'immatriculation (optionnel) ──────────────────── */}
                 <Text style={[s.label, { marginTop: 16 }]}>
                   Immatriculation <Text style={s.optional}>(optionnel)</Text>
                 </Text>
-                {/* Widget visuellement inspiré d'une vraie plaque algérienne */}
                 <View style={s.plateOuter}>
                   <View style={s.plateBand}>
                     <Text style={s.plateFlag}>🇩🇿</Text>
@@ -405,7 +365,6 @@ export default function SignUp() {
 
                 {!!error && <ErrorBox msg={error} />}
 
-                {/* Bouton de création de compte — grisé pendant le chargement */}
                 <TouchableOpacity
                   style={[s.btn, loading && s.btnOff]}
                   onPress={handleRegister}
@@ -418,7 +377,6 @@ export default function SignUp() {
               </>
             )}
 
-            {/* Lien vers la connexion — visible sur les deux étapes */}
             <View style={s.divRow}>
               <View style={s.divLine} />
               <Text style={s.divTxt}>ou</Text>
@@ -439,8 +397,6 @@ export default function SignUp() {
   );
 }
 
-// ── Composant interne : bandeau d'erreur ──────────────────────────────────────
-
 function ErrorBox({ msg }: { msg: string }) {
   return (
     <View style={s.errorBox}>
@@ -450,8 +406,6 @@ function ErrorBox({ msg }: { msg: string }) {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#f0f4f8" },
   topBg: {
@@ -459,7 +413,7 @@ const s = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 260,
+    height: 300,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
   },
@@ -483,24 +437,14 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    shadowColor: "#1a73e8",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 7,
+  logo: {
+    width: 200,
+    height: 80,
+    marginBottom: 6,
   },
-  logoP: { fontSize: 32, fontWeight: "900", color: "#1a73e8" },
   brand: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#fff",
     letterSpacing: 1,
     marginBottom: 14,
@@ -512,7 +456,7 @@ const s = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "rgba(255,255,255,0.35)",
   },
-  dotActive: { width: 24, backgroundColor: "#fff" }, // plus large = étape active
+  dotActive: { width: 24, backgroundColor: "#fff" },
 
   // Carte
   card: {
@@ -552,7 +496,7 @@ const s = StyleSheet.create({
   mismatch: { fontSize: 12, color: "#ef4444", marginTop: 4, marginLeft: 2 },
   match: { fontSize: 12, color: "#22c55e", marginTop: 4, marginLeft: 2 },
 
-  // Avatar picker
+  // Avatar
   avatarPreview: { alignItems: "center", marginVertical: 10 },
   avatarBig: {
     width: 72,
@@ -651,7 +595,7 @@ const s = StyleSheet.create({
   btnOff: { backgroundColor: "#74aaf0" },
   btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
 
-  // Séparateur et lien connexion
+  // Séparateur
   divRow: {
     flexDirection: "row",
     alignItems: "center",

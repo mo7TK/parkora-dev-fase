@@ -7,13 +7,13 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
 
-import ParkingCard from "@/src/components/ParkingCard";
+import FavoriteCard from "@/src/components/FavoriteCard";
 import { useAuth } from "@/src/context/AuthContext";
 import { BACKEND_URL } from "@/src/constants/config";
-import { router } from "expo-router";
 
 type ParkingLot = {
   id: string;
@@ -21,6 +21,7 @@ type ParkingLot = {
   total_spots: number;
   latitude: number;
   longitude: number;
+  hero_image?: string;
 };
 
 export default function Favorites() {
@@ -45,13 +46,25 @@ export default function Favorites() {
     }
   }
 
-  // Recharge à chaque fois que l'onglet devient visible
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
       fetchFavorites();
     }, [token]),
   );
+
+  async function removeFavorite(lotId: string) {
+    if (!token) return;
+    setLots((prev) => prev.filter((l) => l.id !== lotId));
+    try {
+      await fetch(`${BACKEND_URL}/favorites/${lotId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      fetchFavorites();
+    }
+  }
 
   function openDetails(lot: ParkingLot) {
     router.push({
@@ -77,16 +90,17 @@ export default function Favorites() {
             setRefreshing(true);
             fetchFavorites();
           }}
-          tintColor="#1a73e8"
+          colors={["#1a73e8"]} // Android
         />
       }
     >
-      {/* Header */}
-      <View style={s.header}>
-        <Text style={s.title}>Favorites</Text>
-        <Text style={s.sub}>Your saved parking lots</Text>
-      </View>
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <LinearGradient colors={["#1a73e8", "#4da3ff"]} style={s.header}>
+        <Text style={s.title}>Favoris</Text>
+        <Text style={s.sub}>Vos parkings enregistrés</Text>
+      </LinearGradient>
 
+      {/* ── Content ──────────────────────────────────────────────────────── */}
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -94,26 +108,27 @@ export default function Favorites() {
           style={{ marginTop: 60 }}
         />
       ) : lots.length === 0 ? (
-        /* Empty state */
         <View style={s.empty}>
           <View style={s.emptyIcon}>
             <Ionicons name="heart-outline" size={48} color="#cbd5e1" />
           </View>
-          <Text style={s.emptyTitle}>No favorites yet</Text>
+          <Text style={s.emptyTitle}>Aucun favori</Text>
           <Text style={s.emptySub}>
-            Tap the heart icon on any parking lot to save it here.
+            Appuyez sur le cœur d'un parking pour l'enregistrer ici.
           </Text>
         </View>
       ) : (
-        /* Cards — même ParkingCard que la map */
         <View style={s.cards}>
           {lots.map((lot) => (
-            <ParkingCard
+            <FavoriteCard
               key={lot.id}
               lotId={lot.id}
               name={lot.name}
               totalSpots={lot.total_spots}
+              heroImage={lot.hero_image}
+              isFavorite={true}
               onPress={() => openDetails(lot)}
+              onToggleFavorite={() => removeFavorite(lot.id)}
             />
           ))}
         </View>
@@ -130,16 +145,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 24,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "rgba(255,255,255,0.15)",
   },
-  title: { fontSize: 28, fontWeight: "800", color: "#1a1a2e" },
-  sub: { fontSize: 13, color: "#94a3b8", marginTop: 4 },
+  title: { fontSize: 28, fontWeight: "800", color: "#fff" },
+  sub: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 4 },
 
   cards: {
     padding: 16,
-    gap: 12,
+    gap: 14,
   },
 
   empty: {
