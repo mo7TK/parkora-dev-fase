@@ -44,6 +44,11 @@ function formatPlate(raw: string): string {
   return `${d.slice(0, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
 }
 
+// +213XXXXXXXXX = 13 chars,  0XXXXXXXXX = 10 chars
+function phoneMaxLength(value: string): number {
+  return value.startsWith("+") ? 13 : 10;
+}
+
 export default function SignUp() {
   const { register } = useAuth();
 
@@ -69,6 +74,18 @@ export default function SignUp() {
       setError("Veuillez remplir tous les champs.");
       return;
     }
+    if (firstName.trim().length < 3) {
+      setError("Le prénom doit contenir au moins 3 lettres.");
+      return;
+    }
+    if (lastName.trim().length < 3) {
+      setError("Le nom doit contenir au moins 3 lettres.");
+      return;
+    }
+    if (!/^\+213\d{9}$/.test(phone.trim()) && !/^0\d{9}$/.test(phone.trim())) {
+      setError("Numéro invalide. Format : +213XXXXXXXXX ou 0XXXXXXXXX");
+      return;
+    }
     setError("");
     setStep(2);
   }
@@ -84,6 +101,10 @@ export default function SignUp() {
     }
     if (password !== confirm) {
       setError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+    if (plate && plate.replace(/\D/g, "").length !== 10) {
+      setError("L'immatriculation doit contenir exactement 10 chiffres.");
       return;
     }
     setLoading(true);
@@ -119,7 +140,6 @@ export default function SignUp() {
         >
           {/* ── En-tête ───────────────────────────────────────────────────── */}
           <View style={s.header}>
-            {/* Bouton retour */}
             <TouchableOpacity
               style={s.backBtn}
               onPress={() => (step === 2 ? setStep(1) : router.back())}
@@ -127,7 +147,6 @@ export default function SignUp() {
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
 
-            {/* Logo blanc */}
             <Image
               source={require("../../assets/images/parkora-logo-white.png")}
               style={s.logo}
@@ -135,7 +154,6 @@ export default function SignUp() {
             />
             <Text style={s.brand}>Le futur du stationnement est déjà là !</Text>
 
-            {/* Points d'étapes */}
             <View style={s.dots}>
               <View style={[s.dot, step === 1 && s.dotActive]} />
               <View style={[s.dot, step === 2 && s.dotActive]} />
@@ -163,7 +181,7 @@ export default function SignUp() {
                     style={s.input}
                     value={firstName}
                     onChangeText={setFirstName}
-                    placeholder="Votre prénom"
+                    placeholder="Votre prénom (min. 3 lettres)"
                     placeholderTextColor="#c8cdd8"
                     autoCapitalize="words"
                   />
@@ -181,7 +199,7 @@ export default function SignUp() {
                     style={s.input}
                     value={lastName}
                     onChangeText={setLastName}
-                    placeholder="Votre nom"
+                    placeholder="Votre nom (min. 3 lettres)"
                     placeholderTextColor="#c8cdd8"
                     autoCapitalize="words"
                   />
@@ -199,9 +217,10 @@ export default function SignUp() {
                     style={s.input}
                     value={phone}
                     onChangeText={setPhone}
-                    placeholder="+213 XX XX XX XX"
+                    placeholder="+213XXXXXXXXX"
                     placeholderTextColor="#c8cdd8"
                     keyboardType="phone-pad"
+                    maxLength={phoneMaxLength(phone)}
                   />
                 </View>
 
@@ -424,7 +443,6 @@ const s = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // En-tête
   header: { alignItems: "center", marginBottom: 24 },
   backBtn: {
     position: "absolute",
@@ -437,11 +455,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  logo: {
-    width: 200,
-    height: 80,
-    marginBottom: 6,
-  },
+  logo: { width: 200, height: 80, marginBottom: 6 },
   brand: {
     fontSize: 13,
     fontWeight: "600",
@@ -458,7 +472,6 @@ const s = StyleSheet.create({
   },
   dotActive: { width: 24, backgroundColor: "#fff" },
 
-  // Carte
   card: {
     backgroundColor: "#fff",
     borderRadius: 24,
@@ -472,7 +485,6 @@ const s = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "800", color: "#1a1a2e", marginBottom: 4 },
   sub: { fontSize: 13, color: "#94a3b8", marginBottom: 8 },
 
-  // Champs
   label: {
     fontSize: 13,
     fontWeight: "600",
@@ -493,10 +505,10 @@ const s = StyleSheet.create({
   },
   fi: { marginRight: 10 },
   input: { flex: 1, fontSize: 15, color: "#1a1a2e" },
+
   mismatch: { fontSize: 12, color: "#ef4444", marginTop: 4, marginLeft: 2 },
   match: { fontSize: 12, color: "#22c55e", marginTop: 4, marginLeft: 2 },
 
-  // Avatar
   avatarPreview: { alignItems: "center", marginVertical: 10 },
   avatarBig: {
     width: 72,
@@ -533,7 +545,6 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Plaque
   plateOuter: {
     flexDirection: "row",
     alignItems: "center",
@@ -563,7 +574,6 @@ const s = StyleSheet.create({
     letterSpacing: 4,
   },
 
-  // Erreur
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -577,7 +587,6 @@ const s = StyleSheet.create({
   },
   errorText: { flex: 1, fontSize: 13, color: "#ef4444" },
 
-  // Bouton
   btn: {
     backgroundColor: "#1a73e8",
     borderRadius: 14,
@@ -595,7 +604,6 @@ const s = StyleSheet.create({
   btnOff: { backgroundColor: "#74aaf0" },
   btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
 
-  // Séparateur
   divRow: {
     flexDirection: "row",
     alignItems: "center",
