@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function History() {
+export default function Reservation() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>History coming soon</Text>
+      <Text style={styles.text}>reservation coming soon</Text>
     </View>
   );
 }

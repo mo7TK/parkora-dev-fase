@@ -48,9 +48,9 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="reservation"
         options={{
-          title: "Suivi auto",
+          title: "Reservations",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
               name="shield-car"

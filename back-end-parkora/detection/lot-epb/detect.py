@@ -1,3 +1,4 @@
+import os
 import cv2
 import json
 import time
@@ -18,7 +19,7 @@ PARKING_LOT_ID  = "69d9422ef052a357e475c52c"
 
 # ── Internal secret key ───────────────────────────────────────────────────────
 # Must match INTERNAL_SECRET in your backend .env file.
-INTERNAL_SECRET = "dev-secret-change-me"
+INTERNAL_SECRET = os.getenv("INTERNAL_SECRET")
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Performance tuning ───────────────────────────────────────────────────────
