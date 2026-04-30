@@ -15,14 +15,11 @@ type Props = {
   lotId: string;
   name: string;
   totalSpots: number;
+  type?: "paid" | "free";
   onPress: () => void;
 };
 
-type Summary = {
-  free: number;
-  occupied: number;
-  total: number;
-};
+type Summary = { free: number; occupied: number; total: number };
 
 function getAccent(free: number, total: number) {
   if (free === 0) return "#ef4444";
@@ -34,6 +31,7 @@ export default function ParkingCard({
   lotId,
   name,
   totalSpots,
+  type = "free",
   onPress,
 }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -71,9 +69,27 @@ export default function ParkingCard({
 
       {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>
-          {name}
-        </Text>
+        {/* Name + type badge */}
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {name}
+          </Text>
+          <View
+            style={[
+              styles.typeBadge,
+              { backgroundColor: type === "paid" ? "#e8f0fe" : "#dcfce7" },
+            ]}
+          >
+            <Text
+              style={[
+                styles.typeBadgeText,
+                { color: type === "paid" ? "#1a73e8" : "#16a34a" },
+              ]}
+            >
+              {type === "paid" ? "Payant" : "Gratuit"}
+            </Text>
+          </View>
+        </View>
 
         {summary ? (
           <>
@@ -81,7 +97,7 @@ export default function ParkingCard({
               <Text style={[styles.freeCount, { color: accent }]}>
                 {summary.free}
               </Text>
-              <Text style={styles.totalCount}> / {totalSpots} free</Text>
+              <Text style={styles.totalCount}> / {totalSpots} libres</Text>
             </View>
             <View style={styles.barTrack}>
               <Animated.View
@@ -123,10 +139,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  accentBar: {
-    width: 4,
-    alignSelf: "stretch",
-  },
+  accentBar: { width: 4, alignSelf: "stretch" },
   iconWrap: {
     width: 36,
     height: 36,
@@ -134,33 +147,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  iconLetter: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  content: {
-    flex: 1,
-    gap: 4,
+  iconLetter: { fontSize: 18, fontWeight: "800" },
+  content: { flex: 1, gap: 3 },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   name: {
-    fontSize: 13,
+    flex: 1,
+    fontSize: 12,
     fontWeight: "700",
     color: "#0f172a",
     letterSpacing: -0.2,
   },
-  row: {
-    flexDirection: "row",
-    alignItems: "baseline",
+  typeBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  freeCount: {
-    fontSize: 13,
-    fontWeight: "800",
+  typeBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
   },
-  totalCount: {
-    fontSize: 12,
-    color: "#94a3b8",
-    fontWeight: "500",
-  },
+  row: { flexDirection: "row", alignItems: "baseline" },
+  freeCount: { fontSize: 13, fontWeight: "800" },
+  totalCount: { fontSize: 12, color: "#94a3b8", fontWeight: "500" },
   barTrack: {
     height: 3,
     borderRadius: 2,
@@ -168,7 +180,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     overflow: "hidden",
   },
-  barFill: {
-    borderRadius: 2,
-  },
+  barFill: { borderRadius: 2 },
 });

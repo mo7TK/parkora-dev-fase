@@ -3,7 +3,7 @@ import json
 import numpy as np
 
 # ── Configuration ────────────────────────────────────────────────────────────
-VIDEO_PATH = 2   # place your video file next to this script
+VIDEO_PATH = 1   # place your video file next to this script
 SPOTS_FILE = "spots.json"    # where the spot coordinates will be saved
 NUM_SPOTS  = 19              # how many spots you want to define
 # ─────────────────────────────────────────────────────────────────────────────

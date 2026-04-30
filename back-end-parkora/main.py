@@ -23,6 +23,7 @@ from routes.auth import router as auth_router               # /auth/register  /a
 from routes.spots import router as spots_router             # /update-spots   /spots-summary  /ws
 from routes.parking_lots import router as parking_lots_router   # /parking-lots
 from routes.favorites import router as favorites_router # /favorites
+from routes.reservations import router as reservations_router # /reservations
 
 # ── Durée de vie de l'application ─────────────────────────────────────────────
 # Tout ce qui est avant `yield` s'exécute au démarrage du serveur.
@@ -75,7 +76,7 @@ app.include_router(auth_router)            # authentification utilisateurs
 app.include_router(spots_router)           # statut des places en temps réel
 app.include_router(parking_lots_router)    # informations des parkings
 app.include_router(favorites_router)       # gestion des parkings favoris par les utilisateurs
-
+app.include_router(reservations_router)    # gestion des réservations de places par les utilisateurs
 # ── Health check ──────────────────────────────────────────────────────────────
 # Route simple pour vérifier que le serveur tourne.
 # Utile pour les outils de monitoring ou juste pour tester avec le navigateur.

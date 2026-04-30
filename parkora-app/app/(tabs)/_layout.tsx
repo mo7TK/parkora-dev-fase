@@ -51,6 +51,7 @@ export default function TabsLayout() {
         name="reservation"
         options={{
           title: "Reservations",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
               name="shield-car"

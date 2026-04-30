@@ -19,28 +19,26 @@ import ParkingCard from "@/src/components/ParkingCard";
 import SearchBar from "@/src/components/SearchBar";
 import { BACKEND_URL } from "@/src/constants/config";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type ParkingLot = {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
   total_spots: number;
+  type: "paid" | "free";
 };
-// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Sheet configuration ───────────────────────────────────────────────────────
 const SHEET_HEIGHT = 180;
 const DRAG_THRESHOLD = 60;
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const [lots, setLots] = useState<ParkingLot[]>([]);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(true);
+  const [pinFreeSpots, setPinFreeSpots] = useState<Record<string, number>>({});
 
-  // ── Fetch all parking lots from backend ─────────────────────────────────────
+  // ── Fetch all parking lots ─────────────────────────────────────────────────
   useEffect(() => {
     fetch(`${BACKEND_URL}/parking-lots`)
       .then((res) => res.json())
@@ -48,7 +46,18 @@ export default function MapScreen() {
       .catch(() => setLots([]));
   }, []);
 
-  // ── Sheet animation ─────────────────────────────────────────────────────────
+  // ── Fetch free spots count per lot (for pins) ──────────────────────────────
+  useEffect(() => {
+    lots.forEach((lot) => {
+      fetch(`${BACKEND_URL}/spots-summary/${lot.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setPinFreeSpots((prev) => ({ ...prev, [lot.id]: data.free }));
+        });
+    });
+  }, [lots]);
+
+  // ── Sheet animation ────────────────────────────────────────────────────────
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   useEffect(() => {
@@ -96,7 +105,6 @@ export default function MapScreen() {
     }),
   ).current;
 
-  // ── Navigate to my location ─────────────────────────────────────────────────
   async function goToMyLocation() {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
@@ -116,7 +124,6 @@ export default function MapScreen() {
     );
   }
 
-  // ── Navigate to a lot's detail screen ──────────────────────────────────────
   function openDetails(lot: ParkingLot) {
     router.push({
       pathname: "/(parking)/details",
@@ -126,11 +133,11 @@ export default function MapScreen() {
         totalSpots: lot.total_spots,
         latitude: lot.latitude,
         longitude: lot.longitude,
+        type: lot.type,
       },
     });
   }
 
-  // ── Handle search selection: fly map to the lot, then open details ──────────
   function handleSearchSelect(lot: ParkingLot) {
     mapRef.current?.animateToRegion(
       {
@@ -141,11 +148,9 @@ export default function MapScreen() {
       },
       700,
     );
-    // Small delay so the user sees the map pan before the screen navigates
     setTimeout(() => openDetails(lot), 750);
   }
 
-  // ── Initial map region: centre on first lot, or a default ──────────────────
   const initialRegion =
     lots.length > 0
       ? {
@@ -161,20 +166,9 @@ export default function MapScreen() {
           longitudeDelta: 0.012,
         };
 
-  const [pinFreeSpots, setPinFreeSpots] = useState<Record<string, number>>({});
-  useEffect(() => {
-    lots.forEach((lot) => {
-      fetch(`${BACKEND_URL}/spots-summary/${lot.id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          setPinFreeSpots((prev) => ({ ...prev, [lot.id]: data.free }));
-        });
-    });
-  }, [lots]);
-
   return (
     <View style={styles.container}>
-      {/* ── Fullscreen map ──────────────────────────────────────────────────── */}
+      {/* ── Map ─────────────────────────────────────────────────────────────── */}
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -188,48 +182,66 @@ export default function MapScreen() {
             coordinate={{ latitude: lot.latitude, longitude: lot.longitude }}
             onPress={() => openDetails(lot)}
           >
-            <ParkingPin freeSpots={pinFreeSpots[lot.id]} />
+            <ParkingPin freeSpots={pinFreeSpots[lot.id]} type={lot.type} />
           </Marker>
         ))}
       </MapView>
 
-      {/* ── Search bar — now functional, receives lots + selection handler ─── */}
+      {/* ── Search bar ──────────────────────────────────────────────────────── */}
       <SearchBar lots={lots} onSelectLot={handleSearchSelect} />
 
-      {/* ── Location error banner ────────────────────────────────────────────── */}
+      {/* ── Error banner ────────────────────────────────────────────────────── */}
       {locationError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
         </View>
       )}
 
-      {/* ── Locate button — right side, just above the bottom sheet ─────────── */}
-      <TouchableOpacity
-        style={styles.locationButton}
-        onPress={goToMyLocation}
-        activeOpacity={0.8}
-      >
-        <AntDesign name="aim" size={22} color="#1a73e8" />
-      </TouchableOpacity>
+      {/* ── Legend + Locate button — stacked on the right ───────────────────── */}
+      <View style={styles.rightControls}>
+        {/* Legend */}
+        <View style={styles.legend}>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: "#1a73e8" }]} />
+            <Text style={styles.legendText}>Payant</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: "#02a31d" }]} />
+            <Text style={styles.legendText}>Gratuit</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: "#c0392b" }]} />
+            <Text style={styles.legendText}>Complet</Text>
+          </View>
+        </View>
 
-      {/* ── Re-open button — shown only when sheet was dragged away ─────────── */}
+        {/* Locate button */}
+        <TouchableOpacity
+          style={styles.locationButton}
+          onPress={goToMyLocation}
+          activeOpacity={0.8}
+        >
+          <AntDesign name="aim" size={22} color="#1a73e8" />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Re-open sheet button ─────────────────────────────────────────────── */}
       {!sheetVisible && (
         <TouchableOpacity style={styles.reopenButton} onPress={showSheet}>
           <Ionicons name="chevron-up" size={20} color="#1a73e8" />
         </TouchableOpacity>
       )}
 
-      {/* ── Animated bottom sheet ────────────────────────────────────────────── */}
+      {/* ── Bottom sheet ─────────────────────────────────────────────────────── */}
       <Animated.View
         style={[styles.bottomSheet, { transform: [{ translateY }] }]}
       >
-        {/* Drag handle */}
         <View {...panResponder.panHandlers} style={styles.dragArea}>
           <View style={styles.sheetHandle} />
         </View>
 
         <Text style={styles.sheetTitle}>
-          Nearby Parking
+          Parkings à proximité
           {lots.length > 0 && (
             <Text style={styles.sheetCount}> · {lots.length}</Text>
           )}
@@ -237,7 +249,7 @@ export default function MapScreen() {
 
         {lots.length === 0 ? (
           <View style={styles.emptyRow}>
-            <Text style={styles.emptyText}>Connecting to backend…</Text>
+            <Text style={styles.emptyText}>Connexion au backend…</Text>
           </View>
         ) : (
           <ScrollView
@@ -251,6 +263,7 @@ export default function MapScreen() {
                 lotId={lot.id}
                 name={lot.name}
                 totalSpots={lot.total_spots}
+                type={lot.type}
                 onPress={() => openDetails(lot)}
               />
             ))}
@@ -265,11 +278,44 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
 
-  // ── Location button ───────────────────────────────────────────────────────
-  locationButton: {
+  // ── Right controls (legend + locate) ────────────────────────────────────
+  rightControls: {
     position: "absolute",
-    bottom: SHEET_HEIGHT + 14,
     right: 16,
+    bottom: SHEET_HEIGHT + 14,
+    alignItems: "center",
+    gap: 8,
+  },
+
+  legend: {
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 11,
+    color: "#333",
+    fontWeight: "500",
+  },
+
+  locationButton: {
     backgroundColor: "#fff",
     width: 44,
     height: 44,
@@ -283,7 +329,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // ── Re-open button ────────────────────────────────────────────────────────
   reopenButton: {
     position: "absolute",
     bottom: 16,
@@ -301,7 +346,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // ── Error banner ──────────────────────────────────────────────────────────
   errorBanner: {
     position: "absolute",
     top: 110,
@@ -311,12 +355,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
-  errorText: {
-    color: "#fff",
-    fontSize: 13,
-  },
+  errorText: { color: "#fff", fontSize: 13 },
 
-  // ── Bottom sheet ──────────────────────────────────────────────────────────
   bottomSheet: {
     position: "absolute",
     bottom: 0,
@@ -334,11 +374,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 10,
   },
-  dragArea: {
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 10,
-  },
+  dragArea: { alignItems: "center", paddingTop: 12, paddingBottom: 10 },
   sheetHandle: {
     width: 40,
     height: 4,
@@ -351,22 +387,8 @@ const styles = StyleSheet.create({
     color: "#1a1a2e",
     marginBottom: 12,
   },
-  sheetCount: {
-    fontWeight: "400",
-    color: "#aaa",
-  },
-  cardsRow: {
-    flexDirection: "row",
-    gap: 12,
-    paddingRight: 8,
-  },
-  emptyRow: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 13,
-    color: "#bbb",
-  },
+  sheetCount: { fontWeight: "400", color: "#aaa" },
+  cardsRow: { flexDirection: "row", gap: 12, paddingRight: 8 },
+  emptyRow: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyText: { fontSize: 13, color: "#bbb" },
 });
