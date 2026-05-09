@@ -22,7 +22,6 @@ type Summary = {
   occupied: number;
   reserved: number;
 };
-
 type ParkingLot = {
   hero_image: string;
   minimap_image: string;
@@ -56,7 +55,6 @@ export default function Details() {
     }>();
 
   const { token } = useAuth();
-
   const [summary, setSummary] = useState<Summary | null>(null);
   const [lotDetails, setLotDetails] = useState<ParkingLot | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -85,9 +83,9 @@ export default function Details() {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => r.json())
-        .then((data: { id: string }[]) => {
-          setIsFavorite(data.some((l) => l.id === lotId));
-        })
+        .then((data: { id: string }[]) =>
+          setIsFavorite(data.some((l) => l.id === lotId)),
+        )
         .catch(() => {});
     }, [lotId, token]),
   );
@@ -95,10 +93,9 @@ export default function Details() {
   async function toggleFavorite() {
     if (!token || !lotId || favLoading) return;
     setFavLoading(true);
-    const method = isFavorite ? "DELETE" : "POST";
     try {
       await fetch(`${BACKEND_URL}/favorites/${lotId}`, {
-        method,
+        method: isFavorite ? "DELETE" : "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
       setIsFavorite((v) => !v);
@@ -120,9 +117,10 @@ export default function Details() {
     });
   }
 
+  // ── NOUVELLE LOGIQUE : on va d'abord sur le formulaire date/heure ──────────
   function handleReserve() {
     router.push({
-      pathname: "/(parking)/reservation-spot",
+      pathname: "/(parking)/reservation-form",
       params: {
         lotId,
         name,
@@ -135,33 +133,25 @@ export default function Details() {
   const heroImageUri = lotDetails?.hero_image
     ? `${BACKEND_URL}/assets/images/entrance/${lotDetails.hero_image}`
     : null;
-
   const isPaid = (type ?? lotDetails?.type) === "paid";
   const isOpen = lotDetails?.is_open ?? true;
 
-  // ── Render opening hours ───────────────────────────────────────────────────
   function renderHours() {
     const hours = lotDetails?.opening_hours;
     if (!hours) return null;
-
-    if (hours === "24/7") {
+    if (hours === "24/7")
       return (
-        <View style={styles.hoursRow}>
+        <View style={s.hoursRow}>
           <Ionicons name="time-outline" size={16} color="#1a73e8" />
-          <Text style={styles.hoursText}>Ouvert 24h/24 — 7j/7</Text>
+          <Text style={s.hoursText}>Ouvert 24h/24 — 7j/7</Text>
         </View>
       );
-    }
-
-    // dict format
     return (
-      <View style={styles.hoursGrid}>
+      <View style={s.hoursGrid}>
         {Object.entries(hours as Record<string, string>).map(([day, slot]) => (
-          <View key={day} style={styles.hoursGridRow}>
-            <Text style={styles.hoursDay}>{DAY_LABELS[day] ?? day}</Text>
-            <Text
-              style={[styles.hoursSlot, slot === "Fermé" && styles.hoursFerme]}
-            >
+          <View key={day} style={s.hoursGridRow}>
+            <Text style={s.hoursDay}>{DAY_LABELS[day] ?? day}</Text>
+            <Text style={[s.hoursSlot, slot === "Fermé" && s.hoursFerme]}>
               {slot}
             </Text>
           </View>
@@ -171,46 +161,43 @@ export default function Details() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <View style={styles.hero}>
+    <ScrollView style={s.screen} contentContainerStyle={s.content}>
+      {/* Hero */}
+      <View style={s.hero}>
         {heroImageUri ? (
           <Image
             source={{ uri: heroImageUri }}
-            style={styles.heroImage}
+            style={s.heroImage}
             resizeMode="cover"
           />
         ) : (
-          <View style={[styles.heroImage, styles.heroPlaceholder]} />
+          <View style={[s.heroImage, s.heroPlaceholder]} />
         )}
         <LinearGradient
           colors={["transparent", "rgba(0,0,0,0.72)"]}
-          style={styles.heroGradient}
+          style={s.heroGradient}
         >
-          <View style={styles.heroBottom}>
+          <View style={s.heroBottom}>
             <View>
-              <Text style={styles.heroName}>{name}</Text>
-              <Text style={styles.heroSubtitle}>
+              <Text style={s.heroName}>{name}</Text>
+              <Text style={s.heroSubtitle}>
                 Appuyez sur "Naviguer" pour l'itinéraire
               </Text>
             </View>
-            {/* Type badge */}
             <View
               style={[
-                styles.typeBadge,
+                s.typeBadge,
                 { backgroundColor: isPaid ? "#1a73e8" : "#16a34a" },
               ]}
             >
-              <Text style={styles.typeBadgeText}>
+              <Text style={s.typeBadgeText}>
                 {isPaid ? "Payant" : "Gratuit"}
               </Text>
             </View>
           </View>
         </LinearGradient>
-
-        {/* Floating heart */}
         <TouchableOpacity
-          style={styles.heartBtn}
+          style={s.heartBtn}
           onPress={toggleFavorite}
           disabled={favLoading}
         >
@@ -226,49 +213,47 @@ export default function Details() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Open / Closed badge ────────────────────────────────────────────── */}
-      <View style={styles.openBadgeRow}>
+      {/* Open/Closed */}
+      <View style={s.openBadgeRow}>
         <View
           style={[
-            styles.openBadge,
+            s.openBadge,
             { backgroundColor: isOpen ? "#dcfce7" : "#fee2e2" },
           ]}
         >
           <View
             style={[
-              styles.openDot,
+              s.openDot,
               { backgroundColor: isOpen ? "#16a34a" : "#dc2626" },
             ]}
           />
-          <Text
-            style={[styles.openText, { color: isOpen ? "#15803d" : "#dc2626" }]}
-          >
+          <Text style={[s.openText, { color: isOpen ? "#15803d" : "#dc2626" }]}>
             {isOpen ? "Ouvert" : "Fermé"}
           </Text>
         </View>
       </View>
 
-      {/* ── Stats card ────────────────────────────────────────────────────── */}
-      <View style={styles.card}>
-        <View style={styles.cardRow}>
+      {/* Stats */}
+      <View style={s.card}>
+        <View style={s.cardRow}>
           <StatItem label="Total" value={totalSpots} />
-          <View style={styles.divider} />
+          <View style={s.divider} />
           <StatItem
             label="Libres"
             value={summary?.free}
             color="#2ecc71"
             loading={!summary}
           />
-          <View style={styles.divider} />
+          <View style={s.divider} />
           <StatItem
             label="Occupés"
             value={summary?.occupied}
             color="#bc1300"
             loading={!summary}
           />
-          {summary?.reserved !== undefined && summary.reserved > 0 && (
+          {!!summary?.reserved && summary.reserved > 0 && (
             <>
-              <View style={styles.divider} />
+              <View style={s.divider} />
               <StatItem
                 label="Réservés"
                 value={summary.reserved}
@@ -279,90 +264,77 @@ export default function Details() {
         </View>
       </View>
 
-      {/* ── Availability bar ──────────────────────────────────────────────── */}
       {summary && Number(totalSpots) > 0 && (
-        <View style={styles.barWrap}>
-          <View style={styles.barTrack}>
+        <View style={s.barWrap}>
+          <View style={s.barTrack}>
             <View
               style={[
-                styles.barFill,
+                s.barFill,
                 { width: `${(summary.free / Number(totalSpots)) * 100}%` },
               ]}
             />
           </View>
-          <Text style={styles.barLabel}>
+          <Text style={s.barLabel}>
             {Math.round((summary.free / Number(totalSpots)) * 100)}% disponible
           </Text>
         </View>
       )}
 
-      {/* ── Address ───────────────────────────────────────────────────────── */}
       {lotDetails?.address && (
         <InfoSection icon="location-outline" title="Adresse">
-          <Text style={styles.infoText}>{lotDetails.address}</Text>
+          <Text style={s.infoText}>{lotDetails.address}</Text>
         </InfoSection>
       )}
-
-      {/* ── Bio ───────────────────────────────────────────────────────────── */}
       {lotDetails?.bio && (
         <InfoSection icon="information-circle-outline" title="À propos">
-          <Text style={styles.infoText}>{lotDetails.bio}</Text>
+          <Text style={s.infoText}>{lotDetails.bio}</Text>
         </InfoSection>
       )}
 
-      {/* ── Tarif ─────────────────────────────────────────────────────────── */}
       <InfoSection icon="pricetag-outline" title="Tarif">
         {isPaid ? (
-          <View style={styles.tarifRow}>
-            <Text style={styles.tarifPrice}>
+          <View style={s.tarifRow}>
+            <Text style={s.tarifPrice}>
               {lotDetails?.price_per_hour ?? "—"} DA
             </Text>
-            <Text style={styles.tarifUnit}> / heure</Text>
+            <Text style={s.tarifUnit}> / heure</Text>
           </View>
         ) : (
-          <View style={styles.tarifRow}>
+          <View style={s.tarifRow}>
             <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-            <Text style={[styles.tarifPrice, { color: "#16a34a" }]}>
-              {" "}
-              Gratuit
-            </Text>
+            <Text style={[s.tarifPrice, { color: "#16a34a" }]}> Gratuit</Text>
           </View>
         )}
       </InfoSection>
 
-      {/* ── Horaires ──────────────────────────────────────────────────────── */}
       {lotDetails?.opening_hours && (
         <InfoSection icon="calendar-outline" title="Horaires">
           {renderHours()}
         </InfoSection>
       )}
 
-      {/* ── Action buttons ────────────────────────────────────────────────── */}
-      <TouchableOpacity style={styles.buttonNavigate} onPress={handleNavigate}>
+      <TouchableOpacity style={s.buttonNavigate} onPress={handleNavigate}>
         <Ionicons name="navigate" size={18} color="#fff" />
-        <Text style={styles.buttonTextWhite}> Naviguer vers le parking</Text>
+        <Text style={s.buttonTextWhite}> Naviguer vers le parking</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.buttonLayout} onPress={handleViewLayout}>
-        <Text style={styles.buttonTextDark}>Voir le plan du parking</Text>
+      <TouchableOpacity style={s.buttonLayout} onPress={handleViewLayout}>
+        <Text style={s.buttonTextDark}>Voir le plan du parking</Text>
       </TouchableOpacity>
 
-      {/* ── Reserve button — only for paid & open lots ────────────────────── */}
       {isPaid && isOpen && (
-        <TouchableOpacity style={styles.buttonReserve} onPress={handleReserve}>
+        <TouchableOpacity style={s.buttonReserve} onPress={handleReserve}>
           <MaterialCommunityIcons
             name="calendar-check"
             size={20}
             color="#fff"
           />
-          <Text style={styles.buttonTextWhite}> Réserver une place</Text>
+          <Text style={s.buttonTextWhite}> Réserver une place</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
   );
 }
-
-// ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatItem({
   label,
@@ -376,15 +348,15 @@ function StatItem({
   loading?: boolean;
 }) {
   return (
-    <View style={styles.statItem}>
+    <View style={s.statItem}>
       {loading ? (
         <ActivityIndicator size="large" style={{ marginBottom: 8 }} />
       ) : (
-        <Text style={[styles.statNumber, color ? { color } : {}]}>
+        <Text style={[s.statNumber, color ? { color } : {}]}>
           {value ?? "—"}
         </Text>
       )}
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={s.statLabel}>{label}</Text>
     </View>
   );
 }
@@ -399,22 +371,19 @@ function InfoSection({
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.infoSection}>
-      <View style={styles.infoHeader}>
+    <View style={s.infoSection}>
+      <View style={s.infoHeader}>
         <Ionicons name={icon} size={16} color="#1a73e8" />
-        <Text style={styles.infoTitle}>{title}</Text>
+        <Text style={s.infoTitle}>{title}</Text>
       </View>
-      <View style={styles.infoBody}>{children}</View>
+      <View style={s.infoBody}>{children}</View>
     </View>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#f4f4f4" },
   content: { paddingBottom: 40 },
-
   hero: { width: "100%", height: 260 },
   heroImage: { width: "100%", height: "100%" },
   heroPlaceholder: { backgroundColor: "#ccc" },
@@ -439,7 +408,7 @@ const styles = StyleSheet.create({
   typeBadgeText: { fontSize: 12, fontWeight: "700", color: "#fff" },
   heartBtn: {
     position: "absolute",
-    bottom: 16,
+    top: 16,
     right: 16,
     width: 44,
     height: 44,
@@ -447,8 +416,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // Open/closed
   openBadgeRow: { paddingHorizontal: 16, paddingTop: 12 },
   openBadge: {
     flexDirection: "row",
@@ -461,8 +428,6 @@ const styles = StyleSheet.create({
   },
   openDot: { width: 8, height: 8, borderRadius: 4 },
   openText: { fontSize: 13, fontWeight: "700" },
-
-  // Stats
   card: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -481,8 +446,6 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: 28, fontWeight: "700", color: "#2e1a1a" },
   statLabel: { fontSize: 12, color: "#888", marginTop: 2 },
   divider: { width: 1, backgroundColor: "#eee", marginVertical: 4 },
-
-  // Bar
   barWrap: { marginHorizontal: 16, marginBottom: 16, gap: 6 },
   barTrack: {
     height: 8,
@@ -492,8 +455,6 @@ const styles = StyleSheet.create({
   },
   barFill: { height: "100%", backgroundColor: "#2ecc71", borderRadius: 4 },
   barLabel: { fontSize: 12, color: "#888" },
-
-  // Info sections
   infoSection: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -519,13 +480,9 @@ const styles = StyleSheet.create({
   infoTitle: { fontSize: 13, fontWeight: "700", color: "#1a1a2e" },
   infoBody: { paddingHorizontal: 16, paddingVertical: 12 },
   infoText: { fontSize: 14, color: "#4a5568", lineHeight: 22 },
-
-  // Tarif
   tarifRow: { flexDirection: "row", alignItems: "baseline" },
   tarifPrice: { fontSize: 22, fontWeight: "800", color: "#1a73e8" },
   tarifUnit: { fontSize: 14, color: "#94a3b8" },
-
-  // Hours
   hoursRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   hoursText: { fontSize: 14, color: "#4a5568", fontWeight: "500" },
   hoursGrid: { gap: 4 },
@@ -533,8 +490,6 @@ const styles = StyleSheet.create({
   hoursDay: { fontSize: 13, fontWeight: "600", color: "#64748b", width: 36 },
   hoursSlot: { fontSize: 13, color: "#1a1a2e" },
   hoursFerme: { color: "#ef4444" },
-
-  // Buttons
   buttonNavigate: {
     flexDirection: "row",
     backgroundColor: "#1a73e8",

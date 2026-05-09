@@ -1,23 +1,14 @@
 /**
  * app/(parking)/reservation-spot.tsx
- * ─────────────────────────────────────
- * Écran de sélection d'emplacement pour une réservation.
- *
- * Distinct de minimap.tsx :
- *  - Pas de WebSocket / pas de temps-réel
- *  - Couleurs des dots :
- *      Gris   → disponible (cliquable)
- *      Rouge  → déjà réservé sur le créneau demandé (non-cliquable, icône 🔒)
- *      Bleu   → sélectionné par l'utilisateur (animation pulse)
- *  - Les couleurs ne changent QUE pendant l'interaction de sélection
- *  - Barre fixe en bas : "Continuer avec la place N°X"
+ * ÉTAPE 2 du tunnel de réservation.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -31,117 +22,126 @@ import {
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { BACKEND_URL } from "@/src/constants/config";
 import { SPOT_CONFIGS } from "@/src/constants/spotPositions";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const DOT_SIZE     = 30;
+const DOT_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function ReservationSpot() {
-  const { lotId, name, minimapImage, pricePerHour } = useLocalSearchParams<{
-    lotId:        string;
-    name:         string;
+  const {
+    lotId,
+    name,
+    minimapImage,
+    pricePerHour,
+    date,
+    startTime,
+    endTime,
+    duration,
+    estPrice,
+  } = useLocalSearchParams<{
+    lotId: string;
+    name: string;
     minimapImage: string;
     pricePerHour: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: string;
+    estPrice: string;
   }>();
 
-  const lotConfig = lotId ? SPOT_CONFIGS[lotId] : null;
+  const insets = useSafeAreaInsets();
 
-  const imageDisplayWidth  = SCREEN_WIDTH;
+  const lotConfig = lotId ? SPOT_CONFIGS[lotId] : null;
+  const imageDisplayWidth = SCREEN_WIDTH;
   const imageDisplayHeight = lotConfig
     ? (lotConfig.imageHeight / lotConfig.imageWidth) * imageDisplayWidth
     : 800;
 
-  const mapImageUri = lotId && minimapImage
-    ? `${BACKEND_URL}/assets/images/minimaps/${minimapImage}`
-    : null;
+  const mapImageUri =
+    lotId && minimapImage
+      ? `${BACKEND_URL}/assets/images/minimaps/${minimapImage}`
+      : null;
 
   const [takenSpots, setTakenSpots] = useState<number[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Pulse animation shared value for selected dot
-  const pulseScale = useSharedValue(1);
-
   useEffect(() => {
-    if (!lotId) return;
-    // Fetch currently active reservations (right now) to mark taken spots
-    fetch(`${BACKEND_URL}/reservations/active/${lotId}`)
+    if (!lotId || !date || !startTime || !endTime) {
+      setLoading(false);
+      return;
+    }
+    const url = `${BACKEND_URL}/reservations/future/${lotId}?date=${date}&start=${encodeURIComponent(startTime)}&end=${encodeURIComponent(endTime)}`;
+    fetch(url)
       .then((r) => r.json())
-      .then((data: { spot_id: number }[]) => {
-        setTakenSpots(data.map((r) => r.spot_id));
+      .then((data: { taken_spots: number[] }) => {
+        setTakenSpots(data.taken_spots ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [lotId]);
+  }, [lotId, date, startTime, endTime]);
 
   function selectSpot(spotId: number) {
     if (takenSpots.includes(spotId)) return;
-    setSelectedSpot(spotId);
-    // Trigger pulse animation
-    pulseScale.value = withSequence(
-      withTiming(1.35, { duration: 150 }),
-      withRepeat(
-        withSequence(
-          withTiming(1.1, { duration: 500 }),
-          withTiming(1.0, { duration: 500 }),
-        ),
-        -1,
-        true,
-      ),
-    );
+    setSelectedSpot((prev) => (prev === spotId ? null : spotId));
   }
 
-  // ── Pinch & Pan gestures ────────────────────────────────────────────────────
-  const scale         = useSharedValue(1);
-  const savedScale    = useSharedValue(1);
-  const translateX    = useSharedValue(0);
-  const translateY    = useSharedValue(0);
-  const savedTX       = useSharedValue(0);
-  const savedTY       = useSharedValue(0);
+  // ── Gestures ──────────────────────────────────────────────────────────────
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const savedTx = useSharedValue(0);
+  const savedTy = useSharedValue(0);
 
-  const pinchGesture = Gesture.Pinch()
-    .onUpdate((e) => { scale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 4); })
-    .onEnd(() => { savedScale.value = scale.value; });
-
-  const panGesture = Gesture.Pan()
+  const pinch = Gesture.Pinch()
     .onUpdate((e) => {
-      translateX.value = savedTX.value + e.translationX;
-      translateY.value = savedTY.value + e.translationY;
+      scale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 4);
     })
     .onEnd(() => {
-      savedTX.value = translateX.value;
-      savedTY.value = translateY.value;
+      savedScale.value = scale.value;
     });
 
-  const composed = Gesture.Simultaneous(pinchGesture, panGesture);
+  const pan = Gesture.Pan()
+    .onUpdate((e) => {
+      tx.value = savedTx.value + e.translationX;
+      ty.value = savedTy.value + e.translationY;
+    })
+    .onEnd(() => {
+      savedTx.value = tx.value;
+      savedTy.value = ty.value;
+    });
+
+  const composed = Gesture.Simultaneous(pinch, pan);
 
   const mapStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
+      { translateX: tx.value },
+      { translateY: ty.value },
       { scale: scale.value },
     ],
-  }));
-
-  const selectedDotStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
   }));
 
   function handleContinue() {
     if (!selectedSpot) return;
     router.push({
-      pathname: "/(parking)/reservation-form",
+      pathname: "/(parking)/reservation-payment",
       params: {
         lotId,
         name,
-        spotId:       selectedSpot,
+        spotId: selectedSpot,
+        date,
+        startTime,
+        endTime,
+        duration,
+        totalPrice: estPrice,
         pricePerHour,
       },
     });
@@ -149,127 +149,146 @@ export default function ReservationSpot() {
 
   if (!lotConfig || !mapImageUri) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Plan non configuré</Text>
-        <Text style={styles.errorBody}>
+      <View style={st.errorContainer}>
+        <Text style={st.errorTitle}>Plan non configuré</Text>
+        <Text style={st.errorBody}>
           Aucune image ou position de spots trouvée pour ce parking.
         </Text>
       </View>
     );
   }
 
-  // Total number of spots from config
   const totalSpots = Object.keys(lotConfig.positions).length;
+  const available = totalSpots - takenSpots.length;
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      {/* ── Instructions pill ───────────────────────────────────────────────── */}
-      <View style={styles.topOverlay}>
-        <Text style={styles.topText}>
-          Appuyez sur un emplacement{" "}
-          <Text style={{ color: "#94a3b8" }}>gris</Text> pour le sélectionner
-        </Text>
+    <GestureHandlerRootView style={st.container}>
+      {/* ── Zone carte ───────────────────────────────────────────────────── */}
+      <ScrollView
+        style={st.scrollArea}
+        contentContainerStyle={st.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <GestureDetector gesture={composed}>
+          <Animated.View
+            style={[
+              st.mapWrapper,
+              { width: imageDisplayWidth, height: imageDisplayHeight },
+              mapStyle,
+            ]}
+          >
+            <Image
+              source={{ uri: mapImageUri }}
+              style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
+              resizeMode="contain"
+            />
+
+            {loading && (
+              <View style={st.loadingOverlay}>
+                <ActivityIndicator size="large" color="#7c3aed" />
+                <Text style={st.loadingText}>Chargement…</Text>
+              </View>
+            )}
+
+            {!loading &&
+              Array.from({ length: totalSpots }, (_, i) => i + 1).map(
+                (spotId) => {
+                  const pos = lotConfig.positions[spotId];
+                  if (!pos) return null;
+
+                  const left = (pos.x / 100) * imageDisplayWidth - DOT_SIZE / 2;
+                  const top = (pos.y / 100) * imageDisplayHeight - DOT_SIZE / 2;
+                  const isTaken = takenSpots.includes(spotId);
+                  const isSelected = selectedSpot === spotId;
+
+                  let bgColor = "#64748b";
+                  let borderColor = "#fff";
+                  if (isTaken) {
+                    bgColor = "#ef4444";
+                    borderColor = "#c0392b";
+                  }
+                  if (isSelected) {
+                    bgColor = "#7c3aed";
+                    borderColor = "#5b21b6";
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      key={spotId}
+                      style={[
+                        st.dot,
+                        {
+                          left,
+                          top,
+                          backgroundColor: bgColor,
+                          borderColor,
+                          opacity: isTaken ? 0.7 : 1,
+                        },
+                      ]}
+                      onPress={() => selectSpot(spotId)}
+                      activeOpacity={isTaken ? 1 : 0.75}
+                      disabled={isTaken}
+                    >
+                      {isTaken ? (
+                        <Text style={st.dotLock}>🔒</Text>
+                      ) : isSelected ? (
+                        <Text style={st.dotCheck}>✓</Text>
+                      ) : (
+                        <Text style={st.dotText}>{spotId}</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                },
+              )}
+          </Animated.View>
+        </GestureDetector>
+      </ScrollView>
+
+      {/* ── Info pill flottante (remplace la barre violette) ─────────────── */}
+      {!loading && (
+        <View style={st.infoPill}>
+          <Text style={st.infoPillText}>
+            {available} dispo · {date} · {startTime}–{endTime}
+          </Text>
+        </View>
+      )}
+
+      {/* ── Étapes + Légende ─────────────────────────────────────────────── */}
+      <View style={st.midBar}>
+        <View style={st.stepsRow}>
+          <MiniStep num={1} label="Créneau" done />
+          <View style={st.stepLine} />
+          <MiniStep num={2} label="Place" active />
+          <View style={st.stepLine} />
+          <MiniStep num={3} label="Paiement" />
+        </View>
+        <View style={st.legend}>
+          <LegendItem color="#64748b" label="Disponible" />
+          <LegendItem color="#ef4444" label="Réservé" icon="🔒" />
+          <LegendItem color="#7c3aed" label="Sélectionné" />
+        </View>
       </View>
 
-      {/* ── Map + dots ──────────────────────────────────────────────────────── */}
-      <GestureDetector gesture={composed}>
-        <Animated.View
-          style={[{ width: imageDisplayWidth, height: imageDisplayHeight }, mapStyle]}
-        >
-          <Image
-            source={{ uri: mapImageUri }}
-            style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
-            resizeMode="cover"
-          />
-
-          {loading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#1a73e8" />
-            </View>
-          )}
-
-          {!loading &&
-            Array.from({ length: totalSpots }, (_, i) => i + 1).map((spotId) => {
-              const pos = lotConfig.positions[spotId];
-              if (!pos) return null;
-
-              const left = (pos.x / 100) * imageDisplayWidth - DOT_SIZE / 2;
-              const top  = (pos.y / 100) * imageDisplayHeight - DOT_SIZE / 2;
-
-              const isTaken   = takenSpots.includes(spotId);
-              const isSelected = selectedSpot === spotId;
-
-              let bgColor = "#94a3b8"; // grey = available
-              if (isTaken)    bgColor = "#ef4444"; // red = taken
-              if (isSelected) bgColor = "#1a73e8"; // blue = selected
-
-              const dotContent = isTaken ? (
-                <Text style={styles.dotLock}>🔒</Text>
-              ) : (
-                <Text style={styles.dotText}>{spotId}</Text>
-              );
-
-              if (isSelected) {
-                return (
-                  <Animated.View
-                    key={spotId}
-                    style={[
-                      styles.dot,
-                      { left, top, backgroundColor: bgColor, borderColor: "#fff" },
-                      selectedDotStyle,
-                    ]}
-                  >
-                    <Text style={styles.dotCheck}>✓</Text>
-                  </Animated.View>
-                );
-              }
-
-              return (
-                <TouchableOpacity
-                  key={spotId}
-                  style={[
-                    styles.dot,
-                    {
-                      left,
-                      top,
-                      backgroundColor: bgColor,
-                      borderColor: isTaken ? "#c0392b" : "#fff",
-                      opacity: isTaken ? 0.75 : 1,
-                    },
-                  ]}
-                  onPress={() => selectSpot(spotId)}
-                  activeOpacity={isTaken ? 1 : 0.7}
-                  disabled={isTaken}
-                >
-                  {dotContent}
-                </TouchableOpacity>
-              );
-            })}
-        </Animated.View>
-      </GestureDetector>
-
-      {/* ── Legend ──────────────────────────────────────────────────────────── */}
-      <View style={styles.legend}>
-        <LegendItem color="#94a3b8" label="Disponible" />
-        <LegendItem color="#ef4444" label="Réservé" icon="🔒" />
-        <LegendItem color="#1a73e8" label="Sélectionné" />
-      </View>
-
-      {/* ── Bottom CTA bar ──────────────────────────────────────────────────── */}
-      <View style={styles.bottomBar}>
+      {/* ── Barre du bas ─────────────────────────────────────────────────── */}
+      <View style={[st.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
         {selectedSpot ? (
           <>
-            <View>
-              <Text style={styles.selectedLabel}>Place sélectionnée</Text>
-              <Text style={styles.selectedNumber}>Emplacement N°{selectedSpot}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={st.selectedLabel}>Emplacement sélectionné</Text>
+              <Text style={st.selectedNumber}>Place N°{selectedSpot}</Text>
+              <Text style={st.selectedCreno}>
+                {startTime} → {endTime} · {duration}
+              </Text>
             </View>
-            <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
-              <Text style={styles.continueBtnText}>Continuer  →</Text>
+            <TouchableOpacity style={st.continueBtn} onPress={handleContinue}>
+              <Text style={st.continueBtnText}>Payer →</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <Text style={styles.noSelectionText}>
-            Sélectionnez un emplacement pour continuer
+          <Text style={st.noSelectionText}>
+            {loading
+              ? "Chargement…"
+              : "Appuyez sur un emplacement gris pour le sélectionner"}
           </Text>
         )}
       </View>
@@ -277,38 +296,92 @@ export default function ReservationSpot() {
   );
 }
 
-function LegendItem({ color, label, icon }: { color: string; label: string; icon?: string }) {
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function MiniStep({
+  num,
+  label,
+  active,
+  done,
+}: {
+  num: number;
+  label: string;
+  active?: boolean;
+  done?: boolean;
+}) {
+  const bg = done ? "#16a34a" : active ? "#7c3aed" : "#e2e8f0";
+  const color = done || active ? "#fff" : "#94a3b8";
+  const lc = done ? "#16a34a" : active ? "#7c3aed" : "#94a3b8";
   return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color }]}>
-        {icon && <Text style={{ fontSize: 8 }}>{icon}</Text>}
+    <View style={{ alignItems: "center", gap: 3 }}>
+      <View
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          backgroundColor: bg,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ fontSize: 10, fontWeight: "800", color }}>
+          {done ? "✓" : num}
+        </Text>
       </View>
-      <Text style={styles.legendLabel}>{label}</Text>
+      <Text style={{ fontSize: 9, fontWeight: "600", color: lc }}>{label}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+function LegendItem({
+  color,
+  label,
+  icon,
+}: {
+  color: string;
+  label: string;
+  icon?: string;
+}) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <View
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: 7,
+          backgroundColor: color,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        {icon && <Text style={{ fontSize: 7 }}>{icon}</Text>}
+      </View>
+      <Text style={{ fontSize: 11, color: "#4a5568", fontWeight: "500" }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
 
-  topOverlay: {
-    position: "absolute",
-    top: 30,
-    alignSelf: "center",
-    zIndex: 10,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  topText: { fontSize: 13, color: "#fff", fontWeight: "500" },
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f0f4f8" },
+
+  scrollArea: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+
+  // Fond blanc derrière le PNG
+  mapWrapper: { backgroundColor: "#ffffff" },
 
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(255,255,255,0.85)",
     justifyContent: "center",
     alignItems: "center",
+    gap: 12,
   },
+  loadingText: { color: "#7c3aed", fontSize: 13, fontWeight: "600" },
 
   dot: {
     position: "absolute",
@@ -320,48 +393,61 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 5,
   },
-  dotText:  { color: "#fff", fontSize: 11, fontWeight: "700" },
+  dotText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   dotCheck: { color: "#fff", fontSize: 14, fontWeight: "900" },
-  dotLock:  { fontSize: 11 },
+  dotLock: { fontSize: 11 },
 
-  legend: {
+  // Pill flottante (remplace la barre violette)
+  infoPill: {
     position: "absolute",
-    bottom: 110,
+    top: 12,
     alignSelf: "center",
-    flexDirection: "row",
-    gap: 14,
-    backgroundColor: "rgba(0,0,0,0.50)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 20,
   },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  legendDot:  { width: 14, height: 14, borderRadius: 7, justifyContent: "center", alignItems: "center" },
-  legendLabel:{ fontSize: 12, color: "#fff", fontWeight: "500" },
+  infoPillText: { fontSize: 12, color: "#fff", fontWeight: "500" },
+
+  midBar: {
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    gap: 10,
+  },
+  stepsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  stepLine: { width: 28, height: 1, backgroundColor: "#e2e8f0" },
+  legend: { flexDirection: "row", justifyContent: "center", gap: 16 },
 
   bottomBar: {
-    position: "absolute",
-    bottom: 0, left: 0, right: 0,
-    height: 90,
     backgroundColor: "#fff",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 8,
   },
-  selectedLabel:  { fontSize: 11, color: "#94a3b8", fontWeight: "600" },
+  selectedLabel: { fontSize: 10, color: "#94a3b8", fontWeight: "600" },
   selectedNumber: { fontSize: 18, fontWeight: "800", color: "#1a1a2e" },
+  selectedCreno: { fontSize: 11, color: "#64748b", marginTop: 2 },
   continueBtn: {
     backgroundColor: "#7c3aed",
     borderRadius: 14,
@@ -372,15 +458,28 @@ const styles = StyleSheet.create({
   noSelectionText: {
     flex: 1,
     textAlign: "center",
-    fontSize: 14,
+    fontSize: 13,
     color: "#94a3b8",
     fontWeight: "500",
   },
 
   errorContainer: {
-    flex: 1, justifyContent: "center", alignItems: "center",
-    backgroundColor: "#f4f4f4", padding: 32,
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f4f4f4",
+    padding: 32,
   },
-  errorTitle: { fontSize: 20, fontWeight: "700", color: "#1a1a2e", marginBottom: 12 },
-  errorBody:  { fontSize: 14, color: "#888", textAlign: "center", lineHeight: 22 },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1a1a2e",
+    marginBottom: 12,
+  },
+  errorBody: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    lineHeight: 22,
+  },
 });

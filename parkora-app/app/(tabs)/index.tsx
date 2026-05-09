@@ -197,33 +197,30 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* ── Legend + Locate button — stacked on the right ───────────────────── */}
-      <View style={styles.rightControls}>
-        {/* Legend */}
-        <View style={styles.legend}>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: "#1a73e8" }]} />
-            <Text style={styles.legendText}>Payant</Text>
-          </View>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: "#02a31d" }]} />
-            <Text style={styles.legendText}>Gratuit</Text>
-          </View>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: "#c0392b" }]} />
-            <Text style={styles.legendText}>Complet</Text>
-          </View>
+      {/* ── Legend — independent, freely positionable ────────────────────────── */}
+      <View style={styles.legend}>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: "#1a73e8" }]} />
+          <Text style={styles.legendText}>Payant</Text>
         </View>
-
-        {/* Locate button */}
-        <TouchableOpacity
-          style={styles.locationButton}
-          onPress={goToMyLocation}
-          activeOpacity={0.8}
-        >
-          <AntDesign name="aim" size={22} color="#1a73e8" />
-        </TouchableOpacity>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: "#02a31d" }]} />
+          <Text style={styles.legendText}>Gratuit</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: "#c0392b" }]} />
+          <Text style={styles.legendText}>Complet</Text>
+        </View>
       </View>
+
+      {/* ── Locate button — independent, freely positionable ────────────────── */}
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={goToMyLocation}
+        activeOpacity={0.8}
+      >
+        <AntDesign name="aim" size={22} color="#1a73e8" />
+      </TouchableOpacity>
 
       {/* ── Re-open sheet button ─────────────────────────────────────────────── */}
       {!sheetVisible && (
@@ -278,16 +275,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
 
-  // ── Right controls (legend + locate) ────────────────────────────────────
-  rightControls: {
+  // ── Legend — position it freely here ────────────────────────────────────
+  legend: {
     position: "absolute",
     right: 16,
-    bottom: SHEET_HEIGHT + 14,
-    alignItems: "center",
-    gap: 8,
-  },
-
-  legend: {
+    bottom: SHEET_HEIGHT + 70, // ← change this to move the legend up/down
     backgroundColor: "rgba(255,255,255,0.95)",
     borderRadius: 12,
     paddingVertical: 8,
@@ -315,7 +307,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  // ── Locate button — position it freely here ──────────────────────────────
   locationButton: {
+    position: "absolute",
+    right: 16,
+    bottom: SHEET_HEIGHT + 14, // ← change this to move the button up/down
     backgroundColor: "#fff",
     width: 44,
     height: 44,

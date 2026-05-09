@@ -6,11 +6,6 @@ const ACTIVE_COLOR = "#1a73e8";
 const INACTIVE_COLOR = "#aaa";
 
 export default function TabsLayout() {
-  /*
-    edgeToEdgeEnabled:true in app.json makes the app draw behind Android's
-    navigation bar. useSafeAreaInsets().bottom gives us the exact pixel height
-    of those buttons so we can push the tab bar above them.
-  */
   const insets = useSafeAreaInsets();
 
   return (
@@ -30,7 +25,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Map",
+          title: "Carte",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map" color={color} size={size} />
@@ -40,7 +35,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
-          title: "Favorites",
+          title: "Favoris",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" color={color} size={size} />
@@ -50,11 +45,12 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reservation"
         options={{
-          title: "Reservations",
+          title: "Réservations",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
+            // ← icône car-clock remplace shield-car
             <MaterialCommunityIcons
-              name="shield-car"
+              name="car-clock"
               color={color}
               size={size}
             />
@@ -64,7 +60,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "Profil",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" color={color} size={size} />

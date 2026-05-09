@@ -7,7 +7,7 @@ import requests
 from ultralytics import YOLO
 
 # ── Configuration ────────────────────────────────────────────────────────────
-VIDEO_PATH      = 2
+VIDEO_PATH      = 1
 SPOTS_FILE      = "spots.json"
 BACKEND_URL     = "http://127.0.0.1:8000/update-spots"
 SEND_EVERY      = 1.0    # seconds between each POST to the backend
@@ -19,7 +19,7 @@ PARKING_LOT_ID  = "69d9422ef052a357e475c52c"
 
 # ── Internal secret key ───────────────────────────────────────────────────────
 # Must match INTERNAL_SECRET in your backend .env file.
-INTERNAL_SECRET = "dev-secret-change-me"
+INTERNAL_SECRET = "parkora-dev-secret"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Performance tuning ───────────────────────────────────────────────────────

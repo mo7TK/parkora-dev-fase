@@ -35,25 +35,33 @@ function formatExpiry(raw: string): string {
 }
 
 export default function ReservationPayment() {
-  const { lotId, name, spotId, date, startTime, endTime, duration, totalPrice } =
-    useLocalSearchParams<{
-      lotId:       string;
-      name:        string;
-      spotId:      string;
-      date:        string;
-      startTime:   string;
-      endTime:     string;
-      duration:    string;
-      totalPrice:  string;
-    }>();
+  const {
+    lotId,
+    name,
+    spotId,
+    date,
+    startTime,
+    endTime,
+    duration,
+    totalPrice,
+  } = useLocalSearchParams<{
+    lotId: string;
+    name: string;
+    spotId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: string;
+    totalPrice: string;
+  }>();
 
   const { token } = useAuth();
 
   const [cardNumber, setCardNumber] = useState("");
-  const [expiry,     setExpiry]     = useState("");
-  const [cvc,        setCvc]        = useState("");
-  const [paying,     setPaying]     = useState(false);
-  const [success,    setSuccess]    = useState(false);
+  const [expiry, setExpiry] = useState("");
+  const [cvc, setCvc] = useState("");
+  const [paying, setPaying] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const cardValid =
     cardNumber.replace(/\s/g, "").length === 16 &&
@@ -62,7 +70,10 @@ export default function ReservationPayment() {
 
   async function handlePay() {
     if (!cardValid) {
-      Alert.alert("Informations incomplètes", "Veuillez remplir tous les champs de la carte.");
+      Alert.alert(
+        "Informations incomplètes",
+        "Veuillez remplir tous les champs de la carte.",
+      );
       return;
     }
     if (!token) {
@@ -75,16 +86,16 @@ export default function ReservationPayment() {
       const res = await fetch(`${BACKEND_URL}/reservations/`, {
         method: "POST",
         headers: {
-          "Content-Type":  "application/json",
-          Authorization:   `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          lot_id:         lotId,
-          lot_name:       name,
-          spot_id:        Number(spotId),
+          lot_id: lotId,
+          lot_name: name,
+          spot_id: Number(spotId),
           date,
-          start_time:     startTime,
-          end_time:       endTime,
+          start_time: startTime,
+          end_time: endTime,
           payment_method: "cib",
         }),
       });
@@ -92,7 +103,10 @@ export default function ReservationPayment() {
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert("Réservation échouée", data.detail ?? "Une erreur est survenue.");
+        Alert.alert(
+          "Réservation échouée",
+          data.detail ?? "Une erreur est survenue.",
+        );
         return;
       }
 
@@ -115,7 +129,11 @@ export default function ReservationPayment() {
   }
 
   return (
-    <ScrollView style={s.screen} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={s.screen}
+      contentContainerStyle={s.content}
+      keyboardShouldPersistTaps="handled"
+    >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={s.header}>
         <Text style={s.headerTitle}>Paiement</Text>
@@ -129,11 +147,19 @@ export default function ReservationPayment() {
           <Text style={s.cardTitle}>Résumé</Text>
         </View>
         <View style={s.cardBody}>
-          <SummaryRow icon="business-outline"    label="Parking"    value={name} />
-          <SummaryRow icon="layers-outline"      label="Place"      value={`N°${spotId}`} />
-          <SummaryRow icon="calendar-outline"    label="Date"       value={date} />
-          <SummaryRow icon="time-outline"        label="Horaire"    value={`${startTime} → ${endTime}`} />
-          <SummaryRow icon="hourglass-outline"   label="Durée"      value={duration} />
+          <SummaryRow icon="business-outline" label="Parking" value={name} />
+          <SummaryRow
+            icon="layers-outline"
+            label="Place"
+            value={`N°${spotId}`}
+          />
+          <SummaryRow icon="calendar-outline" label="Date" value={date} />
+          <SummaryRow
+            icon="time-outline"
+            label="Horaire"
+            value={`${startTime} → ${endTime}`}
+          />
+          <SummaryRow icon="hourglass-outline" label="Durée" value={duration} />
 
           <View style={s.priceRow}>
             <Text style={s.priceLabel}>Total à payer</Text>
@@ -153,7 +179,11 @@ export default function ReservationPayment() {
           <View style={s.cibCard}>
             <View style={s.cibCardTop}>
               <Text style={s.cibLabel}>CIB</Text>
-              <MaterialCommunityIcons name="chip" size={28} color="rgba(255,255,255,0.7)" />
+              <MaterialCommunityIcons
+                name="chip"
+                size={28}
+                color="rgba(255,255,255,0.7)"
+              />
             </View>
             <Text style={s.cibNumber}>
               {cardNumber || "•••• •••• •••• ••••"}
@@ -219,15 +249,14 @@ export default function ReservationPayment() {
         onPress={handlePay}
         disabled={!cardValid || paying}
       >
-        {paying
-          ? <ActivityIndicator color="#fff" />
-          : (
-            <>
-              <Ionicons name="lock-closed" size={18} color="#fff" />
-              <Text style={s.btnText}>  Payer et réserver · {totalPrice} DA</Text>
-            </>
-          )
-        }
+        {paying ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="lock-closed" size={18} color="#fff" />
+            <Text style={s.btnText}> Payer et réserver · {totalPrice} DA</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <Text style={s.secureNote}>
@@ -243,12 +272,13 @@ export default function ReservationPayment() {
             </View>
             <Text style={s.successTitle}>Réservation confirmée !</Text>
             <Text style={s.successSub}>
-              Votre place N°{spotId} au {name} est réservée de {startTime} à {endTime} le {date}.
+              Votre place N°{spotId} au {name} est réservée de {startTime} à{" "}
+              {endTime} le {date}.
             </Text>
 
             <View style={s.modalDetails}>
-              <ModalDetail label="Place"   value={`N°${spotId}`} />
-              <ModalDetail label="Durée"   value={duration} />
+              <ModalDetail label="Place" value={`N°${spotId}`} />
+              <ModalDetail label="Durée" value={duration} />
               <ModalDetail label="Montant" value={`${totalPrice} DA`} />
             </View>
 
@@ -265,7 +295,15 @@ export default function ReservationPayment() {
   );
 }
 
-function SummaryRow({ icon, label, value }: { icon: any; label: string; value: string }) {
+function SummaryRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={s.summaryRow}>
       <View style={s.summaryIcon}>
@@ -287,42 +325,68 @@ function ModalDetail({ label, value }: { label: string; value: string }) {
 }
 
 const s = StyleSheet.create({
-  screen:  { flex: 1, backgroundColor: "#f0f4f8" },
+  screen: { flex: 1, backgroundColor: "#f0f4f8" },
   content: { paddingBottom: 40 },
 
   header: {
     backgroundColor: "#7c3aed",
-    paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
   },
   headerTitle: { fontSize: 26, fontWeight: "800", color: "#fff" },
-  headerSub:   { fontSize: 14, color: "rgba(255,255,255,0.75)", marginTop: 4 },
+  headerSub: { fontSize: 14, color: "rgba(255,255,255,0.75)", marginTop: 4 },
 
   card: {
-    backgroundColor: "#fff", borderRadius: 14,
-    marginHorizontal: 16, marginTop: 16,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2, overflow: "hidden",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: "hidden",
   },
   cardHeader: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10,
-    borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
   cardTitle: { fontSize: 13, fontWeight: "700", color: "#1a1a2e" },
-  cardBody:  { padding: 16 },
+  cardBody: { padding: 16 },
 
-  summaryRow:  { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
   summaryIcon: {
-    width: 28, height: 28, borderRadius: 8, backgroundColor: "#e8f0fe",
-    justifyContent: "center", alignItems: "center",
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#e8f0fe",
+    justifyContent: "center",
+    alignItems: "center",
   },
   summaryLabel: { flex: 1, fontSize: 13, color: "#64748b" },
   summaryValue: { fontSize: 13, fontWeight: "600", color: "#1a1a2e" },
 
   priceRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    marginTop: 12, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: "#f1f5f9",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
   },
   priceLabel: { fontSize: 15, fontWeight: "700", color: "#1a1a2e" },
   priceValue: { fontSize: 22, fontWeight: "900", color: "#7c3aed" },
@@ -330,70 +394,146 @@ const s = StyleSheet.create({
   // CIB card visual
   cibCard: {
     backgroundColor: "#1a2d5a",
-    borderRadius: 16, padding: 20, marginBottom: 20,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
     minHeight: 160,
   },
-  cibCardTop:     { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cibLabel:       { fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: 3 },
-  cibNumber:      { fontSize: 18, fontWeight: "700", color: "#fff", letterSpacing: 2, marginTop: 20, marginBottom: 16 },
-  cibBottom:      { flexDirection: "row", justifyContent: "space-between" },
-  cibFieldLabel:  { fontSize: 10, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 1 },
-  cibFieldValue:  { fontSize: 14, fontWeight: "700", color: "#fff", marginTop: 2 },
+  cibCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cibLabel: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 3,
+  },
+  cibNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 2,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  cibBottom: { flexDirection: "row", justifyContent: "space-between" },
+  cibFieldLabel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.6)",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  cibFieldValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+    marginTop: 2,
+  },
 
   // Inputs
   inputLabel: {
-    fontSize: 13, fontWeight: "600", color: "#4a5568", marginBottom: 6, marginTop: 14,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4a5568",
+    marginBottom: 6,
+    marginTop: 14,
   },
   input: {
-    backgroundColor: "#f7f9fc", borderRadius: 12, borderWidth: 1.5,
-    borderColor: "#e2e8f0", paddingHorizontal: 14, height: 50,
-    fontSize: 15, color: "#1a1a2e",
+    backgroundColor: "#f7f9fc",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 14,
+    height: 50,
+    fontSize: 15,
+    color: "#1a1a2e",
   },
   inputRow: { flexDirection: "row", alignItems: "flex-start" },
 
   btn: {
     flexDirection: "row",
-    backgroundColor: "#7c3aed", borderRadius: 14, height: 56,
-    justifyContent: "center", alignItems: "center",
-    marginHorizontal: 16, marginTop: 24,
-    shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+    backgroundColor: "#7c3aed",
+    borderRadius: 14,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 24,
+    shadowColor: "#7c3aed",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  btnOff:  { backgroundColor: "#c4b5fd" },
+  btnOff: { backgroundColor: "#c4b5fd" },
   btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
 
   secureNote: {
-    textAlign: "center", fontSize: 12, color: "#94a3b8", marginTop: 12,
+    textAlign: "center",
+    fontSize: 12,
+    color: "#94a3b8",
+    marginTop: 12,
   },
 
   // Success modal
   modalOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center", alignItems: "center", padding: 24,
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
   modalCard: {
-    backgroundColor: "#fff", borderRadius: 24, padding: 28,
-    width: "100%", alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 28,
+    width: "100%",
+    alignItems: "center",
   },
-  successIcon:   { marginBottom: 16 },
-  successTitle:  { fontSize: 22, fontWeight: "800", color: "#1a1a2e", marginBottom: 8 },
-  successSub:    { fontSize: 14, color: "#64748b", textAlign: "center", lineHeight: 22, marginBottom: 20 },
+  successIcon: { marginBottom: 16 },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1a1a2e",
+    marginBottom: 8,
+  },
+  successSub: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 20,
+  },
 
   modalDetails: {
-    width: "100%", backgroundColor: "#f8fafc",
-    borderRadius: 12, padding: 16, gap: 8, marginBottom: 20,
+    width: "100%",
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+    marginBottom: 20,
   },
-  modalDetailRow:   { flexDirection: "row", justifyContent: "space-between" },
+  modalDetailRow: { flexDirection: "row", justifyContent: "space-between" },
   modalDetailLabel: { fontSize: 13, color: "#64748b" },
   modalDetailValue: { fontSize: 13, fontWeight: "700", color: "#1a1a2e" },
 
   modalBtnPrimary: {
-    backgroundColor: "#7c3aed", borderRadius: 14, height: 50,
-    justifyContent: "center", alignItems: "center", width: "100%", marginBottom: 10,
+    backgroundColor: "#7c3aed",
+    borderRadius: 14,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 10,
   },
   modalBtnTextPrimary: { fontSize: 15, fontWeight: "700", color: "#fff" },
   modalBtnSecondary: {
-    height: 50, justifyContent: "center", alignItems: "center", width: "100%",
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
   },
   modalBtnTextSecondary: { fontSize: 15, fontWeight: "600", color: "#94a3b8" },
 });

@@ -18,7 +18,7 @@ PARKING_LOT_ID  = "69d9422ef052a357e475c52b"
 
 # ── Internal secret key ───────────────────────────────────────────────────────
 # Must match INTERNAL_SECRET in your backend .env file.
-INTERNAL_SECRET = "dev-secret-change-me"
+INTERNAL_SECRET = "parkora-dev-secret"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Performance tuning ───────────────────────────────────────────────────────
