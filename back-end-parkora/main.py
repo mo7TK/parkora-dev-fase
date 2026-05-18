@@ -3,12 +3,30 @@ main.py
 ────────
 Point d'entrée de l'application FastAPI.
 
-Responsabilités :
-  • Connexion / déconnexion MongoDB via le gestionnaire de durée de vie (lifespan)
-  • Montage des fichiers statiques (images des parkings)
-  • Enregistrement de tous les routers (auth, spots, parking_lots)
-  • Middleware CORS — indispensable pour que l'app Expo sur un téléphone
-    physique puisse appeler le backend sur le même réseau Wi-Fi local
+Routers backoffice ajoutés (étapes 1 & 2) :
+  POST   /backoffice/admin/login                → backoffice_admin_auth
+  POST   /backoffice/manager/login              → backoffice_manager_auth
+  GET    /backoffice/manager/me                 → backoffice_manager_auth
+
+  GET    /backoffice/admin/managers             → backoffice_managers
+  POST   /backoffice/admin/managers             → backoffice_managers
+  GET    /backoffice/admin/managers/{id}        → backoffice_managers
+  DELETE /backoffice/admin/managers/{id}        → backoffice_managers
+
+  GET    /backoffice/admin/parkings             → backoffice_parking_admin
+  POST   /backoffice/admin/parkings             → backoffice_parking_admin
+  DELETE /backoffice/admin/parkings/{id}        → backoffice_parking_admin
+
+  GET    /backoffice/manager/parking            → backoffice_parking_manager
+  PUT    /backoffice/manager/parking            → backoffice_parking_manager
+
+  GET    /backoffice/admin/clients              → backoffice_clients
+  GET    /backoffice/admin/clients/{id}         → backoffice_clients
+  DELETE /backoffice/admin/clients/{id}         → backoffice_clients
+
+  GET    /backoffice/manager/reservations       → backoffice_reservations
+  GET    /backoffice/manager/reservations/today → backoffice_reservations
+  DELETE /backoffice/manager/reservations/{id}  → backoffice_reservations
 """
 
 from contextlib import asynccontextmanager
@@ -19,67 +37,82 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import connect_db, close_db
-from routes.auth import router as auth_router               # /auth/register  /auth/login  /auth/me
-from routes.spots import router as spots_router             # /update-spots   /spots-summary  /ws
-from routes.parking_lots import router as parking_lots_router   # /parking-lots
-from routes.favorites import router as favorites_router # /favorites
-from routes.reservations import router as reservations_router # /reservations
 
-# ── Durée de vie de l'application ─────────────────────────────────────────────
-# Tout ce qui est avant `yield` s'exécute au démarrage du serveur.
-# Tout ce qui est après `yield` s'exécute à l'arrêt.
-# C'est le pattern moderne FastAPI — remplace les anciens @app.on_event.
+# ── Routers app mobile ────────────────────────────────────────────────────────
+from routes.auth import router as auth_router
+from routes.spots import router as spots_router
+from routes.parking_lots import router as parking_lots_router
+from routes.favorites import router as favorites_router
+from routes.reservations import router as reservations_router
+
+# ── Routers backoffice — auth ─────────────────────────────────────────────────
+from routes.backoffice_admin_auth import router as backoffice_admin_auth_router
+from routes.backoffice_manager_auth import router as backoffice_manager_auth_router
+
+# ── Routers backoffice — CRUD ─────────────────────────────────────────────────
+from routes.backoffice_managers import router as backoffice_managers_router
+from routes.backoffice_parking_admin import router as backoffice_parking_admin_router
+from routes.backoffice_parking_manager import router as backoffice_parking_manager_router
+from routes.backoffice_clients import router as backoffice_clients_router
+from routes.backoffice_reservations import router as backoffice_reservations_router
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connect_db()   # ouvre la connexion MongoDB
+    await connect_db()
     yield
-    await close_db()     # ferme la connexion proprement
+    await close_db()
 
 
 app = FastAPI(lifespan=lifespan)
 
 
-# ── Middleware CORS ────────────────────────────────────────────────────────────
-# CORS (Cross-Origin Resource Sharing) est nécessaire parce que l'app Expo
-# tourne sur un appareil mobile avec une adresse différente du serveur.
-# Sans ça, les requêtes HTTP de l'app seraient bloquées par le navigateur/OS.
-# En production : remplacer allow_origins=["*"] par le domaine exact de l'app.
+# ── CORS ──────────────────────────────────────────────────────────────────────
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],       # autorise toutes les origines (dev uniquement)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],       # GET, POST, PUT, DELETE, etc.
-    allow_headers=["*"],       # Authorization, Content-Type, X-Secret-Key, etc.
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# ── Fichiers statiques ─────────────────────────────────────────────────────────
-# Sert le dossier assets/ en HTTP sous le préfixe /assets.
-# L'app mobile charge les images via :
-#   GET /assets/images/entrance/parking_entrance_univ.jpg
-#   GET /assets/images/minimaps/parking_map_epb.png
-# mkdir(parents=True, exist_ok=True) crée le dossier s'il n'existe pas
-# sans jamais faire crasher le serveur.
+# ── Fichiers statiques ────────────────────────────────────────────────────────
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
-# ── Routers ────────────────────────────────────────────────────────────────────
-# Chaque router est défini dans son propre fichier routes/*.py
-# et regroupe les endpoints liés à un domaine fonctionnel.
+# ── Routers app mobile ────────────────────────────────────────────────────────
 
-app.include_router(auth_router)            # authentification utilisateurs
-app.include_router(spots_router)           # statut des places en temps réel
-app.include_router(parking_lots_router)    # informations des parkings
-app.include_router(favorites_router)       # gestion des parkings favoris par les utilisateurs
-app.include_router(reservations_router)    # gestion des réservations de places par les utilisateurs
+app.include_router(auth_router)
+app.include_router(spots_router)
+app.include_router(parking_lots_router)
+app.include_router(favorites_router)
+app.include_router(reservations_router)
+
+
+# ── Routers backoffice ────────────────────────────────────────────────────────
+
+# Auth
+app.include_router(backoffice_admin_auth_router)
+app.include_router(backoffice_manager_auth_router)
+
+# Admin — CRUD
+app.include_router(backoffice_managers_router)
+app.include_router(backoffice_parking_admin_router)
+app.include_router(backoffice_clients_router)
+
+# Manager — lecture/modification de son parking + réservations
+app.include_router(backoffice_parking_manager_router)
+app.include_router(backoffice_reservations_router)
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
-# Route simple pour vérifier que le serveur tourne.
-# Utile pour les outils de monitoring ou juste pour tester avec le navigateur.
 
 @app.get("/")
 def root():
