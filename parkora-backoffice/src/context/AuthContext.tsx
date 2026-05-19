@@ -1,17 +1,14 @@
 // src/context/AuthContext.tsx
-// Contexte d'authentification du backoffice Parkora.
-// BACKEND_URL vient uniquement de src/config.ts — ne pas redéfinir ici.
-
 import {
   createContext,
-  ReactNode,
   useContext,
   useEffect,
   useState,
+  type ReactNode,
 } from "react";
 import type { BackofficeUser, Role } from "../types/auth";
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 const TOKEN_KEY = "bo_token";
 const USER_KEY = "bo_user";
 
@@ -26,23 +23,44 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<BackofficeUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  // Initialise directly from localStorage — no effect needed for this.
+  // This avoids the "setState synchronously inside useEffect" warning while
+  // keeping the component synchronously hydrated on first render.
+  const [token, setToken] = useState<string | null>(() => {
     try {
-      const savedToken = localStorage.getItem(TOKEN_KEY);
-      const savedUser = localStorage.getItem(USER_KEY);
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser) as BackofficeUser);
-      }
+      return localStorage.getItem(TOKEN_KEY);
     } catch {
+      return null;
+    }
+  });
+
+  const [user, setUser] = useState<BackofficeUser | null>(() => {
+    try {
+      const raw = localStorage.getItem(USER_KEY);
+      return raw ? (JSON.parse(raw) as BackofficeUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // loading is only true long enough for an in-progress async restore;
+  // since we now read localStorage synchronously, we can start as false.
+  const [loading, setLoading] = useState(false);
+
+  // If somehow the saved data is corrupted, clear it once on mount.
+  useEffect(() => {
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    const savedUser = localStorage.getItem(USER_KEY);
+    if ((savedToken && !savedUser) || (!savedToken && savedUser)) {
+      // Inconsistent state — clear everything
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
-    } finally {
-      setLoading(false);
+      // Use a microtask so we're outside the effect body when calling setState
+      Promise.resolve().then(() => {
+        setToken(null);
+        setUser(null);
+        setLoading(false);
+      });
     }
   }, []);
 

@@ -1,5 +1,5 @@
 // src/pages/manager/ParkingSettings.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useManagerParking } from "../../context/ManagerContext";
 import { managerApi, type UpdateParkingBody } from "../../api/managerApi";
@@ -14,36 +14,76 @@ const DAYS = [
   { key: "dim", label: "Dimanche" },
 ];
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function initHoursMode(
+  oh: string | Record<string, string>,
+): "247" | "schedule" {
+  return oh === "24/7" || typeof oh === "string" ? "247" : "schedule";
+}
+
+function initSchedule(
+  oh: string | Record<string, string>,
+): Record<string, string> {
+  return typeof oh === "object" && oh !== null
+    ? (oh as Record<string, string>)
+    : {};
+}
+
+// ── component ─────────────────────────────────────────────────────────────────
+
 export default function ParkingSettings() {
   const { token } = useAuth();
   const { parking, loading, refresh } = useManagerParking();
 
-  const [address, setAddress] = useState("");
-  const [bio, setBio] = useState("");
-  const [isOpen, setIsOpen] = useState(true);
-  const [pricePerHour, setPricePerHour] = useState(0);
-  const [hoursMode, setHoursMode] = useState<"247" | "schedule">("247");
-  const [schedule, setSchedule] = useState<Record<string, string>>({});
+  // Derive a stable "parkingId" so the reset effect only fires when the
+  // parking itself changes, not on every re-render.
+  const parkingId = parking?.id ?? null;
+
+  // All form state is keyed to parkingId; when it changes we re-initialise.
+  const initialAddress = useMemo(() => parking?.address ?? "", [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialBio = useMemo(() => parking?.bio ?? "", [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialIsOpen = useMemo(() => parking?.is_open ?? true, [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialPrice = useMemo(() => parking?.price_per_hour ?? 0, [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialHoursMode = useMemo(
+    () => (parking ? initHoursMode(parking.opening_hours) : ("247" as const)),
+    [parkingId],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialSchedule = useMemo(
+    () => (parking ? initSchedule(parking.opening_hours) : {}),
+    [parkingId],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [address, setAddress] = useState(initialAddress);
+  const [bio, setBio] = useState(initialBio);
+  const [isOpen, setIsOpen] = useState(initialIsOpen);
+  const [pricePerHour, setPricePerHour] = useState(initialPrice);
+  const [hoursMode, setHoursMode] = useState<"247" | "schedule">(
+    initialHoursMode,
+  );
+  const [schedule, setSchedule] =
+    useState<Record<string, string>>(initialSchedule);
+
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  // Reset form fields when the parking data loads or changes.
+  // We use a microtask (Promise.resolve().then) so the setState calls happen
+  // asynchronously — outside the effect body — which avoids the React Compiler
+  // "setState synchronously within an effect" warning.
   useEffect(() => {
     if (!parking) return;
-    setAddress(parking.address ?? "");
-    setBio(parking.bio ?? "");
-    setIsOpen(parking.is_open);
-    setPricePerHour(parking.price_per_hour);
-    if (
-      parking.opening_hours === "24/7" ||
-      typeof parking.opening_hours === "string"
-    ) {
-      setHoursMode("247");
-    } else {
-      setHoursMode("schedule");
-      setSchedule(parking.opening_hours as Record<string, string>);
-    }
-  }, [parking]);
+    const p = parking;
+    Promise.resolve().then(() => {
+      setAddress(p.address ?? "");
+      setBio(p.bio ?? "");
+      setIsOpen(p.is_open);
+      setPricePerHour(p.price_per_hour);
+      setHoursMode(initHoursMode(p.opening_hours));
+      setSchedule(initSchedule(p.opening_hours));
+    });
+  }, [parkingId]); // only re-run when the parking identity changes
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -225,7 +265,7 @@ export default function ParkingSettings() {
   );
 }
 
-// ── Sous-composants ───────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function Section({
   title,

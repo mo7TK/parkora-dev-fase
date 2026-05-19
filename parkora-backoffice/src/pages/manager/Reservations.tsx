@@ -1,5 +1,5 @@
 // src/pages/manager/Reservations.tsx
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { managerApi, type Reservation } from "../../api/managerApi";
 import { Modal } from "../admin/ParkingsList";
@@ -55,21 +55,29 @@ export default function Reservations() {
   const [cancelling, setCancelling] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
 
+  // Keep a ref to the latest fetch parameters so the async callback can use
+  // them without being listed as a dependency (avoids stale closure issues).
+  const fetchRef = useRef({ token, tab, status, date });
+  useEffect(() => {
+    fetchRef.current = { token, tab, status, date };
+  });
+
   const fetchData = useCallback(() => {
-    if (!token) return;
+    const { token: t, tab: tb, status: st, date: dt } = fetchRef.current;
+    if (!t) return;
     setLoading(true);
     setError("");
 
     const promise =
-      tab === "today"
-        ? managerApi.getTodayReservations(token).then((r) => {
+      tb === "today"
+        ? managerApi.getTodayReservations(t).then((r) => {
             setTotal(r.total);
             return r.reservations;
           })
         : managerApi
-            .getReservations(token, {
-              status: status !== "all" ? status : undefined,
-              date: date || undefined,
+            .getReservations(t, {
+              status: st !== "all" ? st : undefined,
+              date: dt || undefined,
             })
             .then((r) => {
               setTotal(r.length);
@@ -78,13 +86,17 @@ export default function Reservations() {
 
     promise
       .then(setItems)
-      .catch((e) => setError(e.message))
+      .catch((e: unknown) =>
+        setError(e instanceof Error ? e.message : "Erreur"),
+      )
       .finally(() => setLoading(false));
-  }, [token, tab, status, date]);
+  }, []); // stable — uses ref internally
 
+  // Re-fetch whenever the filter params change.
+  // fetchData itself is stable, so we explicitly list the real dependencies.
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, token, tab, status, date]);
 
   async function confirmCancel() {
     if (!cancelId || !token) return;
