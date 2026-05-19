@@ -1,6 +1,4 @@
 // src/pages/admin/Dashboard.tsx
-// Dashboard principal de l'admin — stats globales + accès rapides.
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -37,8 +35,8 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  if (loading) return <PageLoader />;
-  if (error) return <ErrorBanner msg={error} />;
+  if (loading) return <Loader />;
+  if (error) return <ErrorBox msg={error} />;
 
   const openLots = lots.filter((l) => l.is_open).length;
   const paidLots = lots.filter((l) => l.type === "paid").length;
@@ -49,7 +47,7 @@ export default function Dashboard() {
       {/* ── Stat cards ───────────────────────────────────────────────────── */}
       <div style={s.statsGrid}>
         <StatCard
-          icon="🏢"
+          icon={<IconBuilding />}
           label="Parkings"
           value={lots.length}
           sub={`${openLots} ouverts · ${paidLots} payants`}
@@ -57,23 +55,23 @@ export default function Dashboard() {
           onClick={() => navigate("/admin/parkings")}
         />
         <StatCard
-          icon="👔"
+          icon={<IconUsers />}
           label="Gestionnaires"
           value={managers.length}
           sub={`${withManager} parkings assignés`}
-          color="#8b5cf6"
+          color="#7c3aed"
           onClick={() => navigate("/admin/managers")}
         />
         <StatCard
-          icon="👤"
+          icon={<IconUser />}
           label="Clients"
           value={clients.length}
           sub="comptes app mobile"
-          color="#10b981"
+          color="#059669"
           onClick={() => navigate("/admin/clients")}
         />
         <StatCard
-          icon="📍"
+          icon={<IconMap />}
           label="Couverture"
           value={`${withManager}/${lots.length}`}
           sub="parkings avec gestionnaire"
@@ -81,9 +79,9 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Sections rapides ─────────────────────────────────────────────── */}
+      {/* ── Sections ─────────────────────────────────────────────────────── */}
       <div style={s.sectionsGrid}>
-        {/* Parkings récents */}
+        {/* Parkings */}
         <div style={s.card}>
           <div style={s.cardHeader}>
             <span style={s.cardTitle}>Parkings</span>
@@ -95,7 +93,7 @@ export default function Dashboard() {
             </button>
           </div>
           {lots.length === 0 ? (
-            <EmptyState msg="Aucun parking créé." />
+            <Empty msg="Aucun parking créé." />
           ) : (
             lots.slice(0, 5).map((lot) => (
               <div key={lot.id} style={s.listRow}>
@@ -103,7 +101,7 @@ export default function Dashboard() {
                   <div
                     style={{
                       ...s.typeDot,
-                      background: lot.type === "paid" ? "#1a73e8" : "#10b981",
+                      background: lot.type === "paid" ? "#1a73e8" : "#059669",
                     }}
                   />
                   <div>
@@ -116,9 +114,9 @@ export default function Dashboard() {
                 <span
                   style={{
                     ...s.badge,
-                    background: lot.is_open ? "#0a1a0a" : "#1c0a0a",
-                    color: lot.is_open ? "#4ade80" : "#f87171",
-                    border: `1px solid ${lot.is_open ? "#14532d" : "#7f1d1d"}`,
+                    background: lot.is_open ? "#f0fdf4" : "#fef2f2",
+                    color: lot.is_open ? "#16a34a" : "#dc2626",
+                    border: `1px solid ${lot.is_open ? "#bbf7d0" : "#fecaca"}`,
                   }}
                 >
                   {lot.is_open ? "Ouvert" : "Fermé"}
@@ -128,13 +126,13 @@ export default function Dashboard() {
           )}
           <button
             style={s.createBtn}
-            onClick={() => navigate("/admin/parkings")}
+            onClick={() => navigate("/admin/create-parking")}
           >
             + Créer un parking
           </button>
         </div>
 
-        {/* Gestionnaires récents */}
+        {/* Gestionnaires */}
         <div style={s.card}>
           <div style={s.cardHeader}>
             <span style={s.cardTitle}>Gestionnaires</span>
@@ -146,14 +144,12 @@ export default function Dashboard() {
             </button>
           </div>
           {managers.length === 0 ? (
-            <EmptyState msg="Aucun gestionnaire créé." />
+            <Empty msg="Aucun gestionnaire créé." />
           ) : (
             managers.slice(0, 5).map((m) => (
               <div key={m.id} style={s.listRow}>
                 <div style={s.listLeft}>
-                  <div style={s.managerAvatar}>
-                    {m.username[0].toUpperCase()}
-                  </div>
+                  <div style={s.avatar}>{m.username[0].toUpperCase()}</div>
                   <div>
                     <div style={s.listName}>{m.username}</div>
                     <div style={s.listSub}>{m.assigned_lot_name}</div>
@@ -180,8 +176,72 @@ export default function Dashboard() {
   );
 }
 
-// ── Sous-composants ───────────────────────────────────────────────────────────
+// ── Icônes ────────────────────────────────────────────────────────────────────
+const IconBuilding = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="2" y="7" width="20" height="14" rx="2" />
+    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+  </svg>
+);
+const IconUsers = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+const IconUser = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+const IconMap = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+    <line x1="8" y1="2" x2="8" y2="18" />
+    <line x1="16" y1="6" x2="16" y2="22" />
+  </svg>
+);
 
+// ── Sous-composants ───────────────────────────────────────────────────────────
 function StatCard({
   icon,
   label,
@@ -190,7 +250,7 @@ function StatCard({
   color,
   onClick,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: string | number;
   sub: string;
@@ -202,25 +262,40 @@ function StatCard({
       style={{ ...s.statCard, cursor: onClick ? "pointer" : "default" }}
       onClick={onClick}
     >
-      <div style={{ ...s.statIcon, background: color + "18", color }}>
+      <div style={{ ...s.statIcon, background: color + "15", color }}>
         {icon}
       </div>
       <div>
-        <div style={{ ...s.statValue, color }}>{value}</div>
-        <div style={s.statLabel}>{label}</div>
-        <div style={s.statSub}>{sub}</div>
+        <div
+          style={{ fontSize: "26px", fontWeight: 800, color, lineHeight: 1 }}
+        >
+          {value}
+        </div>
+        <div
+          style={{
+            fontSize: "13px",
+            color: "#1a1a2e",
+            fontWeight: 600,
+            marginTop: "3px",
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
+          {sub}
+        </div>
       </div>
     </div>
   );
 }
 
-function EmptyState({ msg }: { msg: string }) {
+function Empty({ msg }: { msg: string }) {
   return (
     <div
       style={{
         textAlign: "center",
         padding: "24px",
-        color: "#4b5563",
+        color: "#94a3b8",
         fontSize: "13px",
       }}
     >
@@ -229,7 +304,7 @@ function EmptyState({ msg }: { msg: string }) {
   );
 }
 
-function PageLoader() {
+export function PageLoader() {
   return (
     <div
       style={{ display: "flex", justifyContent: "center", paddingTop: "80px" }}
@@ -238,52 +313,54 @@ function PageLoader() {
         style={{
           width: "32px",
           height: "32px",
-          border: "3px solid #1e2535",
+          border: "3px solid #e2e8f0",
           borderTop: "3px solid #1a73e8",
           borderRadius: "50%",
           animation: "spin 0.8s linear infinite",
         }}
       />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
 
-function ErrorBanner({ msg }: { msg: string }) {
+function Loader() {
+  return <PageLoader />;
+}
+
+function ErrorBox({ msg }: { msg: string }) {
   return (
     <div
       style={{
-        background: "#1c0a0a",
-        border: "1px solid #7f1d1d",
+        background: "#fef2f2",
+        border: "1px solid #fecaca",
         borderRadius: "12px",
         padding: "16px 20px",
-        color: "#fca5a5",
+        color: "#ef4444",
         fontSize: "14px",
       }}
     >
-      ⛔ {msg}
+      {msg}
     </div>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const s: Record<string, React.CSSProperties> = {
   page: { display: "flex", flexDirection: "column", gap: "24px" },
-
   statsGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
     gap: "16px",
   },
   statCard: {
-    background: "#161b27",
-    border: "1px solid #1e2535",
+    background: "#fff",
+    border: "1px solid #e2e8f0",
     borderRadius: "14px",
     padding: "20px",
     display: "flex",
     alignItems: "center",
     gap: "16px",
-    transition: "border-color 0.2s",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
   },
   statIcon: {
     width: "48px",
@@ -292,39 +369,21 @@ const s: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "22px",
     flexShrink: 0,
   },
-  statValue: {
-    fontSize: "26px",
-    fontWeight: 800,
-    lineHeight: 1,
-  },
-  statLabel: {
-    fontSize: "13px",
-    color: "#9ca3af",
-    fontWeight: 600,
-    marginTop: "3px",
-  },
-  statSub: {
-    fontSize: "11px",
-    color: "#4b5563",
-    marginTop: "2px",
-  },
-
   sectionsGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: "16px",
   },
   card: {
-    background: "#161b27",
-    border: "1px solid #1e2535",
+    background: "#fff",
+    border: "1px solid #e2e8f0",
     borderRadius: "14px",
     padding: "20px",
     display: "flex",
     flexDirection: "column",
-    gap: "0",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
   },
   cardHeader: {
     display: "flex",
@@ -332,11 +391,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     marginBottom: "16px",
   },
-  cardTitle: {
-    fontSize: "14px",
-    fontWeight: 700,
-    color: "#f1f5f9",
-  },
+  cardTitle: { fontSize: "14px", fontWeight: 700, color: "#1a1a2e" },
   cardLink: {
     background: "none",
     border: "none",
@@ -345,47 +400,29 @@ const s: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontFamily: "inherit",
   },
-
   listRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "10px 0",
-    borderBottom: "1px solid #1e2535",
+    borderBottom: "1px solid #f1f5f9",
   },
-  listLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  listName: {
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "#f1f5f9",
-  },
-  listSub: {
-    fontSize: "11px",
-    color: "#4b5563",
-    marginTop: "1px",
-  },
-  typeDot: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    flexShrink: 0,
-  },
-  managerAvatar: {
+  listLeft: { display: "flex", alignItems: "center", gap: "10px" },
+  listName: { fontSize: "13px", fontWeight: 600, color: "#1a1a2e" },
+  listSub: { fontSize: "11px", color: "#94a3b8", marginTop: "1px" },
+  typeDot: { width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0 },
+  avatar: {
     width: "28px",
     height: "28px",
     borderRadius: "50%",
-    background: "#1e2d47",
+    background: "#e8f0fe",
     border: "1.5px solid #1a73e8",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "12px",
     fontWeight: 700,
-    color: "#60a5fa",
+    color: "#1a73e8",
     flexShrink: 0,
   },
   badge: {
@@ -395,10 +432,10 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: "20px",
   },
   detailBtn: {
-    background: "#1e2535",
+    background: "#f0f4f8",
     border: "none",
-    borderRadius: "7px",
-    color: "#9ca3af",
+    borderRadius: "8px",
+    color: "#64748b",
     fontSize: "12px",
     padding: "5px 12px",
     cursor: "pointer",
@@ -407,14 +444,13 @@ const s: Record<string, React.CSSProperties> = {
   createBtn: {
     marginTop: "12px",
     background: "none",
-    border: "1px dashed #1e2535",
+    border: "1px dashed #cbd5e1",
     borderRadius: "9px",
-    color: "#4b5563",
+    color: "#94a3b8",
     fontSize: "13px",
     padding: "10px",
     cursor: "pointer",
     fontFamily: "inherit",
     width: "100%",
-    transition: "all 0.15s",
   },
 };
