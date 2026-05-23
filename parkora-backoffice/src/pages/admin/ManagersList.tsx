@@ -179,31 +179,41 @@ function CreateManagerModal({
   onClose: () => void;
 }) {
   const { token } = useAuth();
+
   const [form, setForm] = useState<CreateManagerBody>({
     username: "",
     phone: "",
     assigned_lot_id: lots[0]?.id ?? "",
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<{
+    username?: string;
+    phone?: string;
+    server?: string;
+  }>({});
+
+  function validate() {
+    const e: typeof errors = {};
+    if (!form.username.trim()) e.username = "Le nom d'utilisateur est requis.";
+    if (!form.phone.trim()) e.phone = "Le numéro de téléphone est requis.";
+    return e;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!token || !form.username.trim()) {
-      setError("Le username est requis.");
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
-    if (!form.assigned_lot_id) {
-      setError("Choisissez un parking.");
-      return;
-    }
+    if (!token) return;
     setLoading(true);
-    setError("");
+    setErrors({});
     try {
       const result = await adminApi.createManager(token, form);
       onCreated(result);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erreur création");
+      setErrors({ server: e instanceof Error ? e.message : "Erreur création" });
     } finally {
       setLoading(false);
     }
@@ -219,27 +229,39 @@ function CreateManagerModal({
           </button>
         </div>
         <form onSubmit={handleSubmit} style={m.mForm}>
+          {/* Nom d'utilisateur */}
           <MField label="Nom d'utilisateur *">
             <input
-              style={m.input}
+              style={{ ...m.input, ...(errors.username ? m.inputError : {}) }}
               value={form.username}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, username: e.target.value }))
-              }
-              placeholder="Ex: manager_setif1"
-              required
+              onChange={(e) => {
+                setForm((p) => ({ ...p, username: e.target.value }));
+                setErrors((p) => ({ ...p, username: undefined }));
+              }}
+              placeholder="Entrer le nom d'utilisateur"
             />
+            {errors.username && (
+              <span style={m.fieldError}>{errors.username}</span>
+            )}
           </MField>
-          <MField label="Téléphone">
+
+          {/* Téléphone */}
+          <MField label="Téléphone *">
             <input
-              style={m.input}
+              style={{ ...m.input, ...(errors.phone ? m.inputError : {}) }}
               value={form.phone}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, phone: e.target.value }))
-              }
-              placeholder="+213XXXXXXXXX"
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "");
+                setForm((p) => ({ ...p, phone: digits }));
+                setErrors((p) => ({ ...p, phone: undefined }));
+              }}
+              placeholder="Entrer le numéro de téléphone"
+              inputMode="numeric"
             />
+            {errors.phone && <span style={m.fieldError}>{errors.phone}</span>}
           </MField>
+
+          {/* Parking */}
           <MField label="Parking assigné *">
             <select
               style={m.select}
@@ -255,11 +277,14 @@ function CreateManagerModal({
               ))}
             </select>
           </MField>
+
           <div style={m.infoBox}>
             Un mot de passe sécurisé sera généré automatiquement et affiché une
             seule fois.
           </div>
-          {error && <div style={m.errBox}>{error}</div>}
+
+          {errors.server && <div style={m.errBox}>{errors.server}</div>}
+
           <div style={m.mActions}>
             <button type="button" style={m.cancelBtn} onClick={onClose}>
               Annuler
@@ -493,6 +518,13 @@ const m: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     flexShrink: 0,
   },
+  fieldError: {
+    fontSize: "12px",
+    color: "#ef4444",
+    marginTop: "4px",
+    marginLeft: "2px",
+  },
+  inputError: { borderColor: "#ef4444" },
 };
 
 const s: Record<string, React.CSSProperties> = {

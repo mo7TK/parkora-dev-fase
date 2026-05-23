@@ -1,102 +1,27 @@
 // src/layouts/AdminLayout.tsx
-// Layout admin — thème blanc/bleu identique à l'app mobile.
-
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  LayoutGrid,
+  SquareParking,
+  Users,
+  LogOut,
+  UserStar,
+} from "lucide-react";
 
-interface NavItem {
-  path: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-// Icônes SVG inline
-const IconGrid = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="3" width="7" height="7" />
-    <rect x="14" y="3" width="7" height="7" />
-    <rect x="14" y="14" width="7" height="7" />
-    <rect x="3" y="14" width="7" height="7" />
-  </svg>
-);
-const IconBuilding = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="2" y="7" width="20" height="14" rx="2" />
-    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-  </svg>
-);
-const IconUsers = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-const IconUser = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-const IconLogOut = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-);
-
-const NAV: NavItem[] = [
-  { path: "/admin", label: "Dashboard", icon: <IconGrid /> },
-  { path: "/admin/parkings", label: "Parkings", icon: <IconBuilding /> },
-  { path: "/admin/managers", label: "Gestionnaires", icon: <IconUsers /> },
-  { path: "/admin/clients", label: "Clients", icon: <IconUser /> },
+const NAV = [
+  { path: "/admin", label: "Dashboard", icon: <LayoutGrid size={18} /> },
+  {
+    path: "/admin/parkings",
+    label: "Parkings",
+    icon: <SquareParking size={18} />,
+  },
+  {
+    path: "/admin/managers",
+    label: "Gestionnaires",
+    icon: <UserStar size={18} />,
+  },
+  { path: "/admin/clients", label: "Clients", icon: <Users size={18} /> },
 ];
 
 export default function AdminLayout({
@@ -119,9 +44,7 @@ export default function AdminLayout({
 
   return (
     <div style={s.root}>
-      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside style={s.sidebar}>
-        {/* Logo */}
         <div style={s.logoWrap}>
           <img src="/parkora-logo.png" alt="Parkora" style={s.logo} />
           <span style={s.logoBadge}>Administration</span>
@@ -129,7 +52,6 @@ export default function AdminLayout({
 
         <div style={s.divider} />
 
-        {/* Navigation */}
         <nav style={s.nav}>
           {NAV.map((item) => {
             const active =
@@ -142,7 +64,12 @@ export default function AdminLayout({
                 style={{ ...s.navItem, ...(active ? s.navItemActive : {}) }}
                 onClick={() => navigate(item.path)}
               >
-                <span style={{ color: active ? "#1a73e8" : "#94a3b8" }}>
+                <span
+                  style={{
+                    color: active ? "#1a73e8" : "#94a3b8",
+                    display: "flex",
+                  }}
+                >
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -155,7 +82,6 @@ export default function AdminLayout({
         <div style={{ flex: 1 }} />
         <div style={s.divider} />
 
-        {/* User info + logout */}
         <div style={s.userRow}>
           <div style={s.userAvatar}>
             {user?.username?.[0]?.toUpperCase() ?? "A"}
@@ -169,36 +95,26 @@ export default function AdminLayout({
             onClick={handleLogout}
             title="Déconnexion"
           >
-            <IconLogOut />
+            <LogOut size={18} color="#94a3b8" />
           </button>
         </div>
       </aside>
 
-      {/* ── Zone contenu ─────────────────────────────────────────────────── */}
       <div style={s.body}>
-        {/* Header */}
         <header style={s.header}>
           <div>
             <h1 style={s.pageTitle}>{activeNav?.label ?? "Backoffice"}</h1>
             <p style={s.pagePath}>{location.pathname}</p>
           </div>
-          <div style={s.headerRight}>
-            <div style={s.livePill}>
-              <div style={s.liveDot} />
-              <span style={s.liveText}>Système actif</span>
-            </div>
+          <div style={s.livePill}>
+            <div style={s.liveDot} />
+            <span style={s.liveText}>Système actif</span>
           </div>
         </header>
-
-        {/* Contenu */}
         <main style={s.main}>{children}</main>
       </div>
 
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        button:hover { opacity: 0.85; }
-        button { transition: opacity 0.15s; }
-      `}</style>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} button:hover{opacity:.85} button{transition:opacity .15s}`}</style>
     </div>
   );
 }
@@ -212,8 +128,6 @@ const s: Record<string, React.CSSProperties> = {
     background: "#f0f4f8",
     fontFamily: "'DM Sans', system-ui, sans-serif",
   },
-
-  // Sidebar
   sidebar: {
     width: "240px",
     flexShrink: 0,
@@ -232,10 +146,7 @@ const s: Record<string, React.CSSProperties> = {
     gap: "4px",
     padding: "4px 8px 16px",
   },
-  logo: {
-    width: "130px",
-    height: "auto",
-  },
+  logo: { width: "130px", height: "auto" },
   logoBadge: {
     fontSize: "10px",
     color: "#1a73e8",
@@ -244,16 +155,8 @@ const s: Record<string, React.CSSProperties> = {
     textTransform: "uppercase" as const,
     marginLeft: "2px",
   },
-  divider: {
-    height: "1px",
-    background: "#e2e8f0",
-    margin: "8px 0",
-  },
-  nav: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-  },
+  divider: { height: "1px", background: "#e2e8f0", margin: "8px 0" },
+  nav: { display: "flex", flexDirection: "column", gap: "2px" },
   navItem: {
     display: "flex",
     alignItems: "center",
@@ -271,11 +174,7 @@ const s: Record<string, React.CSSProperties> = {
     width: "100%",
     fontFamily: "inherit",
   },
-  navItemActive: {
-    background: "#e8f0fe",
-    color: "#1a73e8",
-    fontWeight: 700,
-  },
+  navItemActive: { background: "#e8f0fe", color: "#1a73e8", fontWeight: 700 },
   navDot: {
     position: "absolute",
     right: "10px",
@@ -317,7 +216,6 @@ const s: Record<string, React.CSSProperties> = {
   logoutBtn: {
     background: "none",
     border: "none",
-    color: "#94a3b8",
     cursor: "pointer",
     padding: "6px",
     borderRadius: "8px",
@@ -325,8 +223,6 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     flexShrink: 0,
   },
-
-  // Corps
   body: {
     flex: 1,
     display: "flex",
@@ -345,7 +241,6 @@ const s: Record<string, React.CSSProperties> = {
   },
   pageTitle: { fontSize: "20px", fontWeight: 700, color: "#1a1a2e" },
   pagePath: { fontSize: "12px", color: "#94a3b8", marginTop: "2px" },
-  headerRight: { display: "flex", alignItems: "center" },
   livePill: {
     display: "flex",
     alignItems: "center",
@@ -363,9 +258,5 @@ const s: Record<string, React.CSSProperties> = {
     animation: "pulse 2s ease infinite",
   },
   liveText: { fontSize: "12px", color: "#16a34a", fontWeight: 600 },
-  main: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "28px 32px",
-  },
+  main: { flex: 1, overflowY: "auto", padding: "28px 32px" },
 };

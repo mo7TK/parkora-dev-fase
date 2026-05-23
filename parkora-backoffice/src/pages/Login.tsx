@@ -1,97 +1,9 @@
 // src/pages/Login.tsx
-// Page de connexion — style identique à l'app mobile (blanc + bleu #1a73e8).
-// Pas d'animations, pas de stats, pas d'emojis, juste le logo + formulaire.
-
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../types/auth";
-
-// ── Icônes SVG inline (identiques au style Ionicons de l'app) ─────────────────
-
-const IconUser = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#b0b8c8"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-
-const IconLock = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#b0b8c8"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-  </svg>
-);
-
-const IconEye = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#b0b8c8"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const IconEyeOff = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#b0b8c8"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-    <line x1="1" y1="1" x2="23" y2="23" />
-  </svg>
-);
-
-const IconAlert = () => (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#ef4444"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" />
-    <line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-);
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+import { User, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function Login() {
   const { login, user, loading: authLoading } = useAuth();
@@ -109,7 +21,6 @@ export default function Login() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Redirect si déjà connecté
   useEffect(() => {
     if (!authLoading && user) {
       navigate(user.role === "admin" ? "/admin" : "/manager", {
@@ -118,7 +29,6 @@ export default function Login() {
     }
   }, [user, authLoading, navigate]);
 
-  // Focus auto sur le champ username
   useEffect(() => {
     inputRef.current?.focus();
   }, [role]);
@@ -144,24 +54,20 @@ export default function Login() {
 
   return (
     <div style={s.screen}>
-      {/* Fond dégradé en haut — identique à l'app mobile */}
       <div style={s.topBg} />
 
       <div style={s.container}>
-        {/* ── Zone logo ──────────────────────────────────────────────────── */}
         <div style={s.logoArea}>
           <img src="/parkora-logo-white.png" alt="Parkora" style={s.logo} />
           <p style={s.tagline}>Stationnement Intelligent</p>
         </div>
 
-        {/* ── Carte formulaire ───────────────────────────────────────────── */}
         <div style={s.card}>
           <h1 style={s.title}>Connexion</h1>
           <p style={s.subtitle}>
             {isAdmin ? "Espace Administrateur" : "Espace Gestionnaire"}
           </p>
 
-          {/* Toggle Admin / Gestionnaire */}
           <div style={s.toggle}>
             <button
               type="button"
@@ -191,15 +97,11 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Formulaire */}
           <form onSubmit={handleSubmit} style={s.form}>
-            {/* Username */}
             <div style={s.fieldGroup}>
               <label style={s.label}>Nom d'utilisateur</label>
               <div style={s.field}>
-                <span style={s.fieldIcon}>
-                  <IconUser />
-                </span>
+                <User size={18} color="#b0b8c8" />
                 <input
                   ref={inputRef}
                   style={s.input}
@@ -212,13 +114,10 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Mot de passe */}
             <div style={s.fieldGroup}>
               <label style={s.label}>Mot de passe</label>
               <div style={s.field}>
-                <span style={s.fieldIcon}>
-                  <IconLock />
-                </span>
+                <Lock size={18} color="#b0b8c8" />
                 <input
                   style={s.input}
                   type={showPw ? "text" : "password"}
@@ -233,20 +132,22 @@ export default function Login() {
                   onClick={() => setShowPw((v) => !v)}
                   tabIndex={-1}
                 >
-                  {showPw ? <IconEyeOff /> : <IconEye />}
+                  {showPw ? (
+                    <EyeOff size={18} color="#b0b8c8" />
+                  ) : (
+                    <Eye size={18} color="#b0b8c8" />
+                  )}
                 </button>
               </div>
             </div>
 
-            {/* Erreur */}
             {error && (
               <div style={s.errorBox}>
-                <IconAlert />
+                <AlertCircle size={15} color="#ef4444" />
                 <span style={s.errorText}>{error}</span>
               </div>
             )}
 
-            {/* Bouton */}
             <button
               type="submit"
               style={{ ...s.btn, ...(loading ? s.btnOff : {}) }}
@@ -258,7 +159,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* CSS global minimal */}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #f0f4f8; }
@@ -270,8 +170,6 @@ export default function Login() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const s: Record<string, React.CSSProperties> = {
   screen: {
     minHeight: "100vh",
@@ -282,8 +180,6 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "'DM Sans', system-ui, sans-serif",
     position: "relative",
   },
-
-  // Dégradé en haut identique à l'app mobile
   topBg: {
     position: "fixed",
     top: 0,
@@ -295,7 +191,6 @@ const s: Record<string, React.CSSProperties> = {
     borderBottomRightRadius: "36px",
     zIndex: 0,
   },
-
   container: {
     position: "relative",
     zIndex: 1,
@@ -307,26 +202,19 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "24px",
   },
-
-  // Logo
   logoArea: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: "6px",
   },
-  logo: {
-    width: "200px",
-    height: "auto",
-  },
+  logo: { width: "200px", height: "auto" },
   tagline: {
     fontSize: "13px",
     color: "rgba(255,255,255,0.85)",
     fontWeight: 600,
     letterSpacing: "1px",
   },
-
-  // Carte
   card: {
     backgroundColor: "#fff",
     borderRadius: "24px",
@@ -340,13 +228,7 @@ const s: Record<string, React.CSSProperties> = {
     color: "#1a1a2e",
     marginBottom: "4px",
   },
-  subtitle: {
-    fontSize: "13px",
-    color: "#94a3b8",
-    marginBottom: "20px",
-  },
-
-  // Toggle
+  subtitle: { fontSize: "13px", color: "#94a3b8", marginBottom: "20px" },
   toggle: {
     display: "flex",
     backgroundColor: "#f7f9fc",
@@ -371,27 +253,10 @@ const s: Record<string, React.CSSProperties> = {
     color: "#fff",
     boxShadow: "0 2px 8px rgba(26,115,232,0.3)",
   },
-  toggleInactive: {
-    backgroundColor: "transparent",
-    color: "#94a3b8",
-  },
-
-  // Formulaire
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
-  fieldGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-  },
-  label: {
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "#4a5568",
-  },
+  toggleInactive: { backgroundColor: "transparent", color: "#94a3b8" },
+  form: { display: "flex", flexDirection: "column", gap: "16px" },
+  fieldGroup: { display: "flex", flexDirection: "column", gap: "6px" },
+  label: { fontSize: "13px", fontWeight: 600, color: "#4a5568" },
   field: {
     display: "flex",
     alignItems: "center",
@@ -402,11 +267,6 @@ const s: Record<string, React.CSSProperties> = {
     paddingRight: "14px",
     height: "50px",
     gap: "10px",
-  },
-  fieldIcon: {
-    display: "flex",
-    alignItems: "center",
-    flexShrink: 0,
   },
   input: {
     flex: 1,
@@ -426,8 +286,6 @@ const s: Record<string, React.CSSProperties> = {
     padding: "4px",
     flexShrink: 0,
   },
-
-  // Erreur
   errorBox: {
     display: "flex",
     alignItems: "center",
@@ -437,13 +295,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: "12px",
     border: "1px solid #fecaca",
   },
-  errorText: {
-    fontSize: "13px",
-    color: "#ef4444",
-    flex: 1,
-  },
-
-  // Bouton
+  errorText: { fontSize: "13px", color: "#ef4444", flex: 1 },
   btn: {
     backgroundColor: "#1a73e8",
     borderRadius: "14px",

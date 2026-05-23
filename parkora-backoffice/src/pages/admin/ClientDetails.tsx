@@ -1,16 +1,16 @@
-// src/pages/admin/ManagerDetails.tsx
+// src/pages/admin/ClientDetails.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { adminApi, type Manager } from "../../api/adminApi";
+import { adminApi, type ClientDetail } from "../../api/adminApi";
 import { PageLoader, ErrorBanner, Modal } from "./ParkingsList";
 
-export default function ManagerDetails() {
+export default function ClientDetails() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
   const navigate = useNavigate();
 
-  const [manager, setManager] = useState<Manager | null>(null);
+  const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showDel, setShowDel] = useState(false);
@@ -19,8 +19,8 @@ export default function ManagerDetails() {
   useEffect(() => {
     if (!token || !id) return;
     adminApi
-      .getManager(token, id)
-      .then(setManager)
+      .getClient(token, id)
+      .then(setClient)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [token, id]);
@@ -29,8 +29,8 @@ export default function ManagerDetails() {
     if (!token || !id) return;
     setDeleting(true);
     try {
-      await adminApi.deleteManager(token, id);
-      navigate("/admin/managers");
+      await adminApi.deleteClient(token, id);
+      navigate("/admin/clients");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur suppression");
       setDeleting(false);
@@ -39,19 +39,21 @@ export default function ManagerDetails() {
 
   if (loading) return <PageLoader />;
   if (error) return <ErrorBanner msg={error} />;
-  if (!manager) return null;
+  if (!client) return null;
 
   return (
     <div style={s.page}>
-      <button style={s.backBtn} onClick={() => navigate("/admin/managers")}>
+      <button style={s.backBtn} onClick={() => navigate("/admin/clients")}>
         ← Retour
       </button>
 
       <div style={s.headerRow}>
-        <div style={s.avatarBig}>{manager.username[0].toUpperCase()}</div>
+        <span style={{ fontSize: "52px" }}>{client.avatar}</span>
         <div>
-          <h2 style={s.name}>{manager.username}</h2>
-          <span style={s.roleBadge}>Gestionnaire</span>
+          <h2 style={s.name}>
+            {client.first_name} {client.last_name}
+          </h2>
+          <span style={s.roleBadge}>Client app mobile</span>
         </div>
         <div style={{ flex: 1 }} />
         <button style={s.deleteBtn} onClick={() => setShowDel(true)}>
@@ -59,38 +61,42 @@ export default function ManagerDetails() {
         </button>
       </div>
 
+      <div style={s.statRow}>
+        <div style={s.statChip}>
+          <span style={s.statVal}>{client.total_reservations}</span>
+          <span style={s.statLbl}>Réservations</span>
+        </div>
+        <div style={s.statChip}>
+          <span style={s.statVal}>{client.favorites.length}</span>
+          <span style={s.statLbl}>Favoris</span>
+        </div>
+      </div>
+
       <div style={s.grid}>
-        <InfoCard title="Informations du compte">
-          <InfoRow label="Username" value={manager.username} />
-          <InfoRow label="Téléphone" value={manager.phone || "—"} />
-          <InfoRow label="ID" value={manager.id} mono />
-          <InfoRow
-            label="Créé le"
-            value={new Date(manager.created_at).toLocaleDateString("fr-FR", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          />
+        <InfoCard title="Informations personnelles">
+          <InfoRow label="Prénom" value={client.first_name} />
+          <InfoRow label="Nom" value={client.last_name} />
+          <InfoRow label="Téléphone" value={client.phone || "—"} />
+          <InfoRow label="Email" value={client.email} />
+          <InfoRow label="ID" value={client.id} mono />
         </InfoCard>
-        <InfoCard title="Parking assigné">
-          <InfoRow label="Nom du parking" value={manager.assigned_lot_name} />
-          <InfoRow label="ID du parking" value={manager.assigned_lot_id} mono />
-          <div style={{ marginTop: "12px" }}>
-            <button
-              style={s.linkBtn}
-              onClick={() => navigate("/admin/parkings")}
-            >
-              Voir tous les parkings →
-            </button>
-          </div>
+        <InfoCard title="Véhicule & Activité">
+          <InfoRow label="Plaque" value={client.plate || "Non renseignée"} />
+          <InfoRow
+            label="Favoris"
+            value={`${client.favorites.length} parking${client.favorites.length !== 1 ? "s" : ""}`}
+          />
+          <InfoRow
+            label="Réservations"
+            value={String(client.total_reservations)}
+          />
         </InfoCard>
       </div>
 
       {showDel && (
         <Modal
-          title="Supprimer ce gestionnaire ?"
-          message={`Le compte "${manager.username}" sera définitivement supprimé. Son parking restera intact.`}
+          title="Supprimer ce client ?"
+          message={`Le compte "${client.email}" sera définitivement supprimé.`}
           confirmLabel={deleting ? "Suppression…" : "Oui, supprimer"}
           onConfirm={confirmDelete}
           onCancel={() => setShowDel(false)}
@@ -202,29 +208,15 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: "14px",
     padding: "20px 24px",
   },
-  avatarBig: {
-    width: "52px",
-    height: "52px",
-    borderRadius: "50%",
-    background: "#e8f0fe",
-    border: "2px solid #1a73e8",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    fontWeight: 700,
-    color: "#1a73e8",
-    flexShrink: 0,
-  },
   name: { fontSize: "22px", fontWeight: 700, color: "#1a1a2e" },
   roleBadge: {
     fontSize: "12px",
     fontWeight: 600,
     padding: "4px 12px",
     borderRadius: "20px",
-    background: "#e8f0fe",
-    color: "#1a73e8",
-    border: "1px solid #bfdbfe",
+    background: "#f0fdf4",
+    color: "#16a34a",
+    border: "1px solid #bbf7d0",
     display: "inline-block",
     marginTop: "6px",
   },
@@ -239,14 +231,17 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "inherit",
     fontWeight: 600,
   },
-  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
-  linkBtn: {
-    background: "none",
-    border: "none",
-    color: "#1a73e8",
-    cursor: "pointer",
-    fontSize: "13px",
-    padding: 0,
-    fontFamily: "inherit",
+  statRow: { display: "flex", gap: "12px" },
+  statChip: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "12px",
+    padding: "16px 24px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "3px",
   },
+  statVal: { fontSize: "24px", fontWeight: 800, color: "#1a1a2e" },
+  statLbl: { fontSize: "12px", color: "#94a3b8" },
+  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
 };

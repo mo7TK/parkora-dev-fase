@@ -22,10 +22,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+/** Traduit les messages d'erreur techniques en phrases lisibles. */
+function friendlyError(raw: string): string {
+  const msg = raw.toLowerCase();
+
+  if (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("network")
+  )
+    return "Impossible de joindre le serveur. Vérifiez votre connexion internet.";
+  if (msg.includes("load failed") || msg.includes("fetch"))
+    return "La connexion au serveur a échoué. Réessayez dans quelques instants.";
+  if (msg.includes("timeout"))
+    return "Le serveur met trop de temps à répondre. Réessayez plus tard.";
+  if (
+    msg.includes("401") ||
+    msg.includes("incorrect") ||
+    msg.includes("invalide")
+  )
+    return "Nom d'utilisateur ou mot de passe incorrect.";
+  if (msg.includes("403"))
+    return "Vous n'avez pas l'autorisation d'accéder à cet espace.";
+  if (msg.includes("404"))
+    return "Le service demandé est introuvable. Contactez l'administrateur.";
+  if (msg.includes("500") || msg.includes("serveur"))
+    return "Une erreur s'est produite côté serveur. Réessayez ou contactez le support.";
+  if (msg.includes("connexion échouée"))
+    return "La connexion a échoué. Vérifiez vos identifiants et réessayez.";
+
+  // Si le message vient déjà du backend (en français), on le garde tel quel.
+  return raw;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Initialise directly from localStorage — no effect needed for this.
-  // This avoids the "setState synchronously inside useEffect" warning while
-  // keeping the component synchronously hydrated on first render.
   const [token, setToken] = useState<string | null>(() => {
     try {
       return localStorage.getItem(TOKEN_KEY);
@@ -43,19 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  // loading is only true long enough for an in-progress async restore;
-  // since we now read localStorage synchronously, we can start as false.
   const [loading, setLoading] = useState(false);
 
-  // If somehow the saved data is corrupted, clear it once on mount.
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
     const savedUser = localStorage.getItem(USER_KEY);
     if ((savedToken && !savedUser) || (!savedToken && savedUser)) {
-      // Inconsistent state — clear everything
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
-      // Use a microtask so we're outside the effect body when calling setState
       Promise.resolve().then(() => {
         setToken(null);
         setUser(null);
@@ -74,14 +99,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? `${BACKEND_URL}/backoffice/admin/login`
         : `${BACKEND_URL}/backoffice/manager/login`;
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json();
+    let res: Response;
+    try {
+      res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+    } catch (err: unknown) {
+      const raw = err instanceof Error ? err.message : "Erreur réseau";
+      throw new Error(friendlyError(raw));
+    }
 
-    if (!res.ok) throw new Error(data.detail ?? "Connexion échouée");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(friendlyError(data.detail ?? "Connexion échouée"));
+    }
 
     const newUser: BackofficeUser =
       role === "admin"

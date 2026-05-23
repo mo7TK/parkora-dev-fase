@@ -1,6 +1,4 @@
 // src/App.tsx
-// Routing final du backoffice Parkora — toutes les pages réelles.
-
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ManagerProvider } from "./context/ManagerContext";
@@ -10,43 +8,41 @@ import ProtectedRoute from "./components/common/ProtectedRoute";
 import Login from "./pages/Login";
 
 // ── Layouts ───────────────────────────────────────────────────────────────────
-import AdminLayout   from "./layouts/AdminLayout";
+import AdminLayout from "./layouts/AdminLayout";
 import ManagerLayout from "./layouts/ManagerLayout";
 
 // ── Pages admin ───────────────────────────────────────────────────────────────
-import Dashboard     from "./pages/admin/Dashboard";
-import ParkingsList  from "./pages/admin/ParkingsList";
+import Dashboard from "./pages/admin/Dashboard";
+import ParkingsList from "./pages/admin/ParkingsList";
 import CreateParking from "./pages/admin/CreateParking";
-import ManagersList  from "./pages/admin/ManagersList";
-import { ManagerDetails, ClientsList, ClientDetails } from "./pages/admin/ManagerDetails";
+import ManagersList from "./pages/admin/ManagersList";
+import ManagerDetails from "./pages/admin/ManagerDetails";
+import ClientsList from "./pages/admin/ClientsList";
+import ClientDetails from "./pages/admin/ClientDetails";
 
 // ── Pages manager ─────────────────────────────────────────────────────────────
-import ManagerDashboard  from "./pages/manager/Dashboard";
-import ParkingSettings   from "./pages/manager/ParkingSettings";
-import Reservations      from "./pages/manager/Reservations";
-import LiveStream        from "./pages/manager/LiveStream";
+import ManagerDashboard from "./pages/manager/Dashboard";
+import ParkingSettings from "./pages/manager/ParkingSettings";
+import Reservations from "./pages/manager/Reservations";
+import LiveStream from "./pages/manager/LiveStream";
 
 // ── Redirect racine ───────────────────────────────────────────────────────────
 
 function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user)              return <Navigate to="/login"   replace />;
-  if (user.role === "admin") return <Navigate to="/admin"   replace />;
-  return                         <Navigate to="/manager" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === "admin") return <Navigate to="/admin" replace />;
+  return <Navigate to="/manager" replace />;
 }
 
-// ── Wrapper manager avec ManagerProvider ─────────────────────────────────────
-// ManagerProvider charge le parking une seule fois et le partage
-// à ManagerLayout + toutes les pages via useManagerParking().
+// ── Wrapper manager ───────────────────────────────────────────────────────────
 
 function ManagerGuard({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute role="manager">
       <ManagerProvider>
-        <ManagerLayout>
-          {children}
-        </ManagerLayout>
+        <ManagerLayout>{children}</ManagerLayout>
       </ManagerProvider>
     </ProtectedRoute>
   );
@@ -58,74 +54,118 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-
         {/* ── Public ───────────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
-        <Route path="/"      element={<RootRedirect />} />
+        <Route path="/" element={<RootRedirect />} />
 
         {/* ── Admin ────────────────────────────────────────────────────── */}
-        <Route path="/admin" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><Dashboard /></AdminLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/parkings" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><ParkingsList /></AdminLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/create-parking" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><CreateParking /></AdminLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/managers" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><ManagersList /></AdminLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/managers/:id" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><ManagerDetails /></AdminLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/clients" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><ClientsList /></AdminLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/clients/:id" element={
-          <ProtectedRoute role="admin">
-            <AdminLayout><ClientDetails /></AdminLayout>
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <Dashboard />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/parkings"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <ParkingsList />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/create-parking"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <CreateParking />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/managers"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <ManagersList />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/managers/:id"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <ManagerDetails />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/clients"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <ClientsList />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/clients/:id"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminLayout>
+                <ClientDetails />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
 
         {/* ── Manager ──────────────────────────────────────────────────── */}
-        <Route path="/manager" element={
-          <ManagerGuard><ManagerDashboard /></ManagerGuard>
-        } />
-
-        <Route path="/manager/parking" element={
-          <ManagerGuard><ParkingSettings /></ManagerGuard>
-        } />
-
-        <Route path="/manager/reservations" element={
-          <ManagerGuard><Reservations /></ManagerGuard>
-        } />
-
-        <Route path="/manager/livestream" element={
-          <ManagerGuard><LiveStream /></ManagerGuard>
-        } />
+        <Route
+          path="/manager"
+          element={
+            <ManagerGuard>
+              <ManagerDashboard />
+            </ManagerGuard>
+          }
+        />
+        <Route
+          path="/manager/parking"
+          element={
+            <ManagerGuard>
+              <ParkingSettings />
+            </ManagerGuard>
+          }
+        />
+        <Route
+          path="/manager/reservations"
+          element={
+            <ManagerGuard>
+              <Reservations />
+            </ManagerGuard>
+          }
+        />
+        <Route
+          path="/manager/livestream"
+          element={
+            <ManagerGuard>
+              <LiveStream />
+            </ManagerGuard>
+          }
+        />
 
         {/* ── 404 ──────────────────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/" replace />} />
-
       </Routes>
     </BrowserRouter>
   );

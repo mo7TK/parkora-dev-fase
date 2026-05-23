@@ -8,6 +8,7 @@ import {
   type Manager,
   type Client,
 } from "../../api/adminApi";
+import { SquareParking, Users, UserStar, Map } from "lucide-react";
 
 export default function Dashboard() {
   const { token } = useAuth();
@@ -44,10 +45,9 @@ export default function Dashboard() {
 
   return (
     <div style={s.page}>
-      {/* ── Stat cards ───────────────────────────────────────────────────── */}
       <div style={s.statsGrid}>
         <StatCard
-          icon={<IconBuilding />}
+          icon={<SquareParking size={22} />}
           label="Parkings"
           value={lots.length}
           sub={`${openLots} ouverts · ${paidLots} payants`}
@@ -55,7 +55,7 @@ export default function Dashboard() {
           onClick={() => navigate("/admin/parkings")}
         />
         <StatCard
-          icon={<IconUsers />}
+          icon={<UserStar size={22} />}
           label="Gestionnaires"
           value={managers.length}
           sub={`${withManager} parkings assignés`}
@@ -63,7 +63,7 @@ export default function Dashboard() {
           onClick={() => navigate("/admin/managers")}
         />
         <StatCard
-          icon={<IconUser />}
+          icon={<Users size={22} />}
           label="Clients"
           value={clients.length}
           sub="comptes app mobile"
@@ -71,7 +71,7 @@ export default function Dashboard() {
           onClick={() => navigate("/admin/clients")}
         />
         <StatCard
-          icon={<IconMap />}
+          icon={<Map size={22} />}
           label="Couverture"
           value={`${withManager}/${lots.length}`}
           sub="parkings avec gestionnaire"
@@ -79,9 +79,7 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Sections ─────────────────────────────────────────────────────── */}
       <div style={s.sectionsGrid}>
-        {/* Parkings */}
         <div style={s.card}>
           <div style={s.cardHeader}>
             <span style={s.cardTitle}>Parkings</span>
@@ -132,7 +130,6 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Gestionnaires */}
         <div style={s.card}>
           <div style={s.cardHeader}>
             <span style={s.cardTitle}>Gestionnaires</span>
@@ -176,72 +173,6 @@ export default function Dashboard() {
   );
 }
 
-// ── Icônes ────────────────────────────────────────────────────────────────────
-const IconBuilding = () => (
-  <svg
-    width="22"
-    height="22"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="2" y="7" width="20" height="14" rx="2" />
-    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-  </svg>
-);
-const IconUsers = () => (
-  <svg
-    width="22"
-    height="22"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-const IconUser = () => (
-  <svg
-    width="22"
-    height="22"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-const IconMap = () => (
-  <svg
-    width="22"
-    height="22"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-    <line x1="8" y1="2" x2="8" y2="18" />
-    <line x1="16" y1="6" x2="16" y2="22" />
-  </svg>
-);
-
-// ── Sous-composants ───────────────────────────────────────────────────────────
 function StatCard({
   icon,
   label,

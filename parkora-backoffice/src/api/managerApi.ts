@@ -49,6 +49,11 @@ export interface TodayReservations {
   reservations: Reservation[];
 }
 
+export interface ChangePasswordBody {
+  current_password: string;
+  new_password: string;
+}
+
 function h(token: string): HeadersInit {
   return {
     "Content-Type": "application/json",
@@ -94,5 +99,12 @@ export const managerApi = {
     req<{ status: string }>(`${BASE}/reservations/${id}`, {
       method: "DELETE",
       headers: h(token),
+    }),
+
+  changePassword: (token: string, body: ChangePasswordBody) =>
+    req<{ status: string }>(`${BASE}/password`, {
+      method: "PUT",
+      headers: h(token),
+      body: JSON.stringify(body),
     }),
 };

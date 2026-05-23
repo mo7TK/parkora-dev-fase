@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { adminApi, type CreateParkingBody } from "../../api/adminApi";
-import { ErrorBanner } from "./ParkingsList";
 
 const DAYS = [
   { key: "lun", label: "Lundi" },
@@ -25,15 +24,24 @@ const DEFAULT_SCHEDULE: Record<string, string> = {
   dim: "Fermé",
 };
 
+type Errors = {
+  name?: string;
+  total_spots?: string;
+  price_per_hour?: string;
+  latitude?: string;
+  longitude?: string;
+  server?: string;
+};
+
 export default function CreateParking() {
   const { token } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<CreateParkingBody>({
     name: "",
-    latitude: 36.75,
-    longitude: 5.039,
-    total_spots: 10,
+    latitude: 0,
+    longitude: 0,
+    total_spots: 0,
     hero_image: "",
     minimap_image: "",
     type: "free",
@@ -49,24 +57,34 @@ export default function CreateParking() {
     ...DEFAULT_SCHEDULE,
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<Errors>({});
 
   function set<K extends keyof CreateParkingBody>(
     key: K,
     value: CreateParkingBody[K],
   ) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
+
+  function validate(): Errors {
+    const e: Errors = {};
+    if (!form.name.trim()) e.name = "Entrer le nom du parking.";
+    if (!form.total_spots || form.total_spots < 1)
+      e.total_spots = "Entrer un nombre de places valide.";
+    if (!form.latitude) e.latitude = "Entrer la latitude.";
+    if (!form.longitude) e.longitude = "Entrer la longitude.";
+    if (form.type === "paid" && form.price_per_hour <= 0)
+      e.price_per_hour = "Entrer un prix par heure valide.";
+    return e;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!token) return;
-    if (!form.name.trim()) {
-      setError("Le nom du parking est requis.");
-      return;
-    }
-    if (form.type === "paid" && form.price_per_hour <= 0) {
-      setError("Un parking payant doit avoir un prix par heure > 0.");
+    const fieldErrors = validate();
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
     const body: CreateParkingBody = {
@@ -74,16 +92,22 @@ export default function CreateParking() {
       opening_hours: hoursMode === "247" ? "24/7" : schedule,
     };
     setLoading(true);
-    setError("");
+    setErrors({});
     try {
       await adminApi.createParking(token, body);
       navigate("/admin/parkings");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erreur création");
+      setErrors({ server: e instanceof Error ? e.message : "Erreur création" });
     } finally {
       setLoading(false);
     }
   }
+
+  const err = (key: keyof Errors) => errors[key];
+  const inputStyle = (key: keyof Errors) => ({
+    ...s.input,
+    ...(err(key) ? s.inputError : {}),
+  });
 
   return (
     <div style={s.page}>
@@ -95,20 +119,20 @@ export default function CreateParking() {
         <p style={s.pageSub}>Remplissez les informations du nouveau parking.</p>
       </div>
 
-      {error && <ErrorBanner msg={error} onClose={() => setError("")} />}
+      {errors.server && <div style={s.serverError}>{errors.server}</div>}
 
       <form onSubmit={handleSubmit} style={s.form}>
-        {/* ── Informations générales ───────────────────────────────────────── */}
+        {/* ── Informations générales ───────────────────────────────────── */}
         <Section title="Informations générales">
           <div style={s.row2}>
             <Field label="Nom du parking *">
               <input
-                style={s.input}
+                style={inputStyle("name")}
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder="Ex: Parking Centre-Ville"
-                required
+                placeholder="Entrer le nom du parking"
               />
+              {err("name") && <FieldError msg={err("name")!} />}
             </Field>
             <Field label="Type">
               <div style={s.toggleGroup}>
@@ -132,26 +156,30 @@ export default function CreateParking() {
           <div style={s.row2}>
             <Field label="Nombre de places *">
               <input
-                style={s.input}
+                style={inputStyle("total_spots")}
                 type="number"
                 min={1}
-                value={form.total_spots}
+                value={form.total_spots || ""}
+                placeholder="Entrer le nombre de places"
                 onChange={(e) => set("total_spots", Number(e.target.value))}
-                required
               />
+              {err("total_spots") && <FieldError msg={err("total_spots")!} />}
             </Field>
             {form.type === "paid" && (
               <Field label="Prix par heure (DA) *">
                 <input
-                  style={s.input}
+                  style={inputStyle("price_per_hour")}
                   type="number"
                   min={1}
-                  value={form.price_per_hour}
+                  value={form.price_per_hour || ""}
+                  placeholder="Entrer le prix par heure"
                   onChange={(e) =>
                     set("price_per_hour", Number(e.target.value))
                   }
-                  required
                 />
+                {err("price_per_hour") && (
+                  <FieldError msg={err("price_per_hour")!} />
+                )}
               </Field>
             )}
           </div>
@@ -161,7 +189,7 @@ export default function CreateParking() {
               style={s.input}
               value={form.address}
               onChange={(e) => set("address", e.target.value)}
-              placeholder="Ex: Rue Didouche Mourad, Sétif 19000"
+              placeholder="Entrer l'adresse"
             />
           </Field>
 
@@ -170,34 +198,36 @@ export default function CreateParking() {
               style={s.textarea}
               value={form.bio}
               onChange={(e) => set("bio", e.target.value)}
-              placeholder="Courte description visible dans l'app mobile…"
+              placeholder="Entrer une description"
               rows={3}
             />
           </Field>
         </Section>
 
-        {/* ── Coordonnées GPS ──────────────────────────────────────────────── */}
+        {/* ── Coordonnées GPS ──────────────────────────────────────────── */}
         <Section title="Coordonnées GPS">
           <div style={s.row2}>
             <Field label="Latitude *">
               <input
-                style={s.input}
+                style={inputStyle("latitude")}
                 type="number"
                 step="any"
-                value={form.latitude}
+                value={form.latitude || ""}
+                placeholder="Entrer la latitude"
                 onChange={(e) => set("latitude", parseFloat(e.target.value))}
-                required
               />
+              {err("latitude") && <FieldError msg={err("latitude")!} />}
             </Field>
             <Field label="Longitude *">
               <input
-                style={s.input}
+                style={inputStyle("longitude")}
                 type="number"
                 step="any"
-                value={form.longitude}
+                value={form.longitude || ""}
+                placeholder="Entrer la longitude"
                 onChange={(e) => set("longitude", parseFloat(e.target.value))}
-                required
               />
+              {err("longitude") && <FieldError msg={err("longitude")!} />}
             </Field>
           </div>
           <p style={s.hint}>
@@ -206,7 +236,7 @@ export default function CreateParking() {
           </p>
         </Section>
 
-        {/* ── Images ───────────────────────────────────────────────────────── */}
+        {/* ── Images ───────────────────────────────────────────────────── */}
         <Section title="Images (noms de fichiers)">
           <div style={s.row2}>
             <Field label="Photo d'entrée">
@@ -214,7 +244,7 @@ export default function CreateParking() {
                 style={s.input}
                 value={form.hero_image}
                 onChange={(e) => set("hero_image", e.target.value)}
-                placeholder="parking_entrance.jpg"
+                placeholder="Entrer le nom du fichier"
               />
             </Field>
             <Field label="Plan minimap">
@@ -222,7 +252,7 @@ export default function CreateParking() {
                 style={s.input}
                 value={form.minimap_image}
                 onChange={(e) => set("minimap_image", e.target.value)}
-                placeholder="parking_map.png"
+                placeholder="Entrer le nom du fichier"
               />
             </Field>
           </div>
@@ -233,7 +263,7 @@ export default function CreateParking() {
           </div>
         </Section>
 
-        {/* ── Statut & Horaires ─────────────────────────────────────────────── */}
+        {/* ── Statut & Horaires ─────────────────────────────────────────── */}
         <Section title="Statut & Horaires">
           <Field label="Statut initial">
             <div style={s.toggleGroup}>
@@ -307,7 +337,7 @@ export default function CreateParking() {
           )}
         </Section>
 
-        {/* ── Actions ──────────────────────────────────────────────────────── */}
+        {/* ── Actions ──────────────────────────────────────────────────── */}
         <div style={s.actions}>
           <button
             type="button"
@@ -322,6 +352,23 @@ export default function CreateParking() {
         </div>
       </form>
     </div>
+  );
+}
+
+// ── Sous-composants ───────────────────────────────────────────────────────────
+
+function FieldError({ msg }: { msg: string }) {
+  return (
+    <span
+      style={{
+        fontSize: "12px",
+        color: "#ef4444",
+        marginTop: "4px",
+        marginLeft: "2px",
+      }}
+    >
+      {msg}
+    </span>
   );
 }
 
@@ -409,6 +456,14 @@ const s: Record<string, React.CSSProperties> = {
   },
   pageTitle: { fontSize: "22px", fontWeight: 700, color: "#1a1a2e" },
   pageSub: { fontSize: "13px", color: "#94a3b8" },
+  serverError: {
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    borderRadius: "12px",
+    padding: "14px 20px",
+    color: "#ef4444",
+    fontSize: "14px",
+  },
   form: { display: "flex", flexDirection: "column", gap: "16px" },
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
   input: {
@@ -422,6 +477,7 @@ const s: Record<string, React.CSSProperties> = {
     outline: "none",
     width: "100%",
   },
+  inputError: { borderColor: "#ef4444" },
   textarea: {
     background: "#f7f9fc",
     border: "1.5px solid #e2e8f0",

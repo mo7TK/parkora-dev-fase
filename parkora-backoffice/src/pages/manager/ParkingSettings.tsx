@@ -30,17 +30,276 @@ function initSchedule(
     : {};
 }
 
-// ── component ─────────────────────────────────────────────────────────────────
+// ── Eye icon ──────────────────────────────────────────────────────────────────
+
+const IconEye = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#94a3b8"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const IconEyeOff = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#94a3b8"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
+// ── PasswordSection ───────────────────────────────────────────────────────────
+
+function PasswordSection() {
+  const { token, logout } = useAuth();
+
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess(false);
+
+    if (newPw.length < 8) {
+      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setError("La confirmation ne correspond pas au nouveau mot de passe.");
+      return;
+    }
+    if (!token) return;
+
+    setSaving(true);
+    try {
+      await managerApi.changePassword(token, {
+        current_password: currentPw,
+        new_password: newPw,
+      });
+      setSuccess(true);
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
+      // Déconnecter après 2 s pour forcer une reconnexion avec le nouveau mot de passe
+      setTimeout(() => logout(), 2000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erreur lors du changement.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section title="Changer le mot de passe">
+      <form onSubmit={handleSubmit} style={s.form}>
+        {/* Mot de passe actuel */}
+        <Field label="Mot de passe actuel">
+          <div style={s.pwField}>
+            <input
+              style={{
+                ...s.input,
+                flex: 1,
+                border: "none",
+                background: "transparent",
+                padding: 0,
+              }}
+              type={showCurrent ? "text" : "password"}
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              placeholder="Votre mot de passe actuel"
+              required
+              autoComplete="current-password"
+            />
+            <button
+              type="button"
+              style={s.eyeBtn}
+              onClick={() => setShowCurrent((v) => !v)}
+            >
+              {showCurrent ? <IconEyeOff /> : <IconEye />}
+            </button>
+          </div>
+        </Field>
+
+        {/* Nouveau mot de passe */}
+        <Field label="Nouveau mot de passe">
+          <div style={s.pwField}>
+            <input
+              style={{
+                ...s.input,
+                flex: 1,
+                border: "none",
+                background: "transparent",
+                padding: 0,
+              }}
+              type={showNew ? "text" : "password"}
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              placeholder="Au moins 8 caractères"
+              required
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              style={s.eyeBtn}
+              onClick={() => setShowNew((v) => !v)}
+            >
+              {showNew ? <IconEyeOff /> : <IconEye />}
+            </button>
+          </div>
+          {/* Barre de force */}
+          {newPw.length > 0 && <StrengthBar password={newPw} />}
+        </Field>
+
+        {/* Confirmation */}
+        <Field label="Confirmer le nouveau mot de passe">
+          <div
+            style={{
+              ...s.pwField,
+              borderColor:
+                confirmPw && confirmPw !== newPw ? "#fecaca" : "#e2e8f0",
+            }}
+          >
+            <input
+              style={{
+                ...s.input,
+                flex: 1,
+                border: "none",
+                background: "transparent",
+                padding: 0,
+              }}
+              type="password"
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              placeholder="Répétez le nouveau mot de passe"
+              required
+              autoComplete="new-password"
+            />
+            {confirmPw && confirmPw === newPw && (
+              <span style={{ color: "#22c55e", fontSize: "14px" }}>✓</span>
+            )}
+          </div>
+        </Field>
+
+        {/* Feedback */}
+        {error && <div style={s.errorBox}>{error}</div>}
+        {success && (
+          <div style={s.successBox}>
+            Mot de passe modifié. Vous allez être déconnecté…
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            type="submit"
+            style={{
+              ...s.saveBtn,
+              background: saving || success ? "#74aaf0" : "#1a73e8",
+              cursor: saving || success ? "not-allowed" : "pointer",
+            }}
+            disabled={saving || success}
+          >
+            {saving ? "Enregistrement…" : "Changer le mot de passe"}
+          </button>
+          <p style={{ fontSize: "12px", color: "#94a3b8" }}>
+            Vous serez déconnecté après le changement.
+          </p>
+        </div>
+      </form>
+    </Section>
+  );
+}
+
+// ── StrengthBar ───────────────────────────────────────────────────────────────
+
+function StrengthBar({ password }: { password: string }) {
+  const score = (() => {
+    let s = 0;
+    if (password.length >= 8) s++;
+    if (password.length >= 12) s++;
+    if (/[A-Z]/.test(password)) s++;
+    if (/[0-9]/.test(password)) s++;
+    if (/[^A-Za-z0-9]/.test(password)) s++;
+    return s;
+  })();
+
+  const levels = [
+    { label: "Très faible", color: "#ef4444" },
+    { label: "Faible", color: "#f97316" },
+    { label: "Moyen", color: "#f59e0b" },
+    { label: "Fort", color: "#22c55e" },
+    { label: "Très fort", color: "#16a34a" },
+  ];
+  const lvl = levels[Math.min(score - 1, 4)] ?? levels[0];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        marginTop: "6px",
+      }}
+    >
+      <div style={{ display: "flex", gap: "3px", flex: 1 }}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              height: "4px",
+              borderRadius: "2px",
+              background: i <= score ? lvl.color : "#e2e8f0",
+              transition: "background 0.2s",
+            }}
+          />
+        ))}
+      </div>
+      <span
+        style={{
+          fontSize: "11px",
+          color: lvl.color,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {lvl.label}
+      </span>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function ParkingSettings() {
   const { token } = useAuth();
   const { parking, loading, refresh } = useManagerParking();
 
-  // Derive a stable "parkingId" so the reset effect only fires when the
-  // parking itself changes, not on every re-render.
   const parkingId = parking?.id ?? null;
 
-  // All form state is keyed to parkingId; when it changes we re-initialise.
   const initialAddress = useMemo(() => parking?.address ?? "", [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
   const initialBio = useMemo(() => parking?.bio ?? "", [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
   const initialIsOpen = useMemo(() => parking?.is_open ?? true, [parkingId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -68,10 +327,6 @@ export default function ParkingSettings() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  // Reset form fields when the parking data loads or changes.
-  // We use a microtask (Promise.resolve().then) so the setState calls happen
-  // asynchronously — outside the effect body — which avoids the React Compiler
-  // "setState synchronously within an effect" warning.
   useEffect(() => {
     if (!parking) return;
     const p = parking;
@@ -83,7 +338,7 @@ export default function ParkingSettings() {
       setHoursMode(initHoursMode(p.opening_hours));
       setSchedule(initSchedule(p.opening_hours));
     });
-  }, [parkingId]); // only re-run when the parking identity changes
+  }, [parkingId]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -261,6 +516,10 @@ export default function ParkingSettings() {
           {saving ? "Enregistrement…" : "Enregistrer les modifications"}
         </button>
       </form>
+
+      {/* ── Section mot de passe — séparée du formulaire principal ── */}
+      <div style={s.divider} />
+      <PasswordSection />
     </div>
   );
 }
@@ -503,5 +762,25 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "inherit",
     alignSelf: "flex-start",
     boxShadow: "0 4px 12px rgba(26,115,232,0.25)",
+  },
+  divider: { height: "1px", background: "#e2e8f0", margin: "4px 0" },
+  // Password section
+  pwField: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    background: "#f7f9fc",
+    border: "1.5px solid #e2e8f0",
+    borderRadius: "9px",
+    padding: "10px 14px",
+  },
+  eyeBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    padding: "2px",
+    flexShrink: 0,
   },
 };

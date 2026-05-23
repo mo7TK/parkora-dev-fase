@@ -27,6 +27,8 @@ Routers backoffice ajoutés (étapes 1 & 2) :
   GET    /backoffice/manager/reservations       → backoffice_reservations
   GET    /backoffice/manager/reservations/today → backoffice_reservations
   DELETE /backoffice/manager/reservations/{id}  → backoffice_reservations
+
+  PUT    /backoffice/manager/password           → backoffice_manager_password
 """
 
 from contextlib import asynccontextmanager
@@ -55,6 +57,7 @@ from routes.backoffice_parking_admin import router as backoffice_parking_admin_r
 from routes.backoffice_parking_manager import router as backoffice_parking_manager_router
 from routes.backoffice_clients import router as backoffice_clients_router
 from routes.backoffice_reservations import router as backoffice_reservations_router
+from routes.backoffice_manager_password import router as backoffice_manager_password_router
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -107,9 +110,10 @@ app.include_router(backoffice_managers_router)
 app.include_router(backoffice_parking_admin_router)
 app.include_router(backoffice_clients_router)
 
-# Manager — lecture/modification de son parking + réservations
+# Manager — lecture/modification de son parking + réservations + mot de passe
 app.include_router(backoffice_parking_manager_router)
 app.include_router(backoffice_reservations_router)
+app.include_router(backoffice_manager_password_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
