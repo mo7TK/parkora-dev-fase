@@ -1,3 +1,4 @@
+import os
 import cv2
 import json
 import time
@@ -9,22 +10,21 @@ from ultralytics import YOLO
 VIDEO_PATH      = 1
 SPOTS_FILE      = "spots.json"
 BACKEND_URL     = "http://127.0.0.1:8000/update-spots"
-STREAM_URL      = "http://127.0.0.1:8000/stream/push"   # ← nouveau
-SEND_EVERY      = 1.0    # secondes entre chaque POST statuts
-STREAM_EVERY    = 0.1    # secondes entre chaque frame envoyée (~10 fps)
-CONFIDENCE      = 0.35
+SEND_EVERY      = 1.0    # seconds between each POST to the backend
+CONFIDENCE      = 0.35   # YOLO confidence threshold (0 to 1)
 
 # ── Parking lot identity ──────────────────────────────────────────────────────
-PARKING_LOT_ID  = "69d9422ef052a357e475c52b"
+# Paste the MongoDB id printed by seed.py here.
+PARKING_LOT_ID  = "69d9422ef052a357e475c52c"
 
 # ── Internal secret key ───────────────────────────────────────────────────────
+# Must match INTERNAL_SECRET in your backend .env file.
 INTERNAL_SECRET = "parkora-dev-secret"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Performance tuning ───────────────────────────────────────────────────────
-INFER_EVERY  = 5
-INFER_WIDTH  = 640
-STREAM_WIDTH = 854   # résolution du flux (16:9 480p)
+INFER_EVERY = 5     # run YOLO only on every Nth frame
+INFER_WIDTH = 640   # resize frame to this width before inference (None = original)
 
 # ── COCO class IDs ───────────────────────────────────────────────────────────
 VEHICLE_CLASSES = {2, 3, 5, 7}
@@ -76,6 +76,12 @@ def draw_frame(frame, spots, statuses):
 
 
 def send_to_backend(statuses):
+    """
+    POST current spot statuses to the backend.
+    Now includes:
+      - lot_id in the body  → tells the backend which parking lot this is
+      - X-Secret-Key header → proves this request comes from detect.py
+    """
     payload = {
         "lot_id": PARKING_LOT_ID,
         "spots": [
@@ -83,42 +89,17 @@ def send_to_backend(statuses):
             for i, status in enumerate(statuses)
         ],
     }
-    headers = {"X-Secret-Key": INTERNAL_SECRET}
+    headers = {
+        "X-Secret-Key": INTERNAL_SECRET,
+    }
     try:
         response = requests.post(BACKEND_URL, json=payload, headers=headers, timeout=1)
-        print(f"[{time.strftime('%H:%M:%S')}] Statuts → {response.status_code} | "
+        print(f"[{time.strftime('%H:%M:%S')}] Sent → {response.status_code} | "
               f"Free: {statuses.count('free')}  Occupied: {statuses.count('occupied')}")
     except requests.exceptions.ConnectionError:
-        print(f"[{time.strftime('%H:%M:%S')}] Backend non joignable, statuts ignorés.")
+        print(f"[{time.strftime('%H:%M:%S')}] Backend not reachable, skipping send.")
     except Exception as e:
-        print(f"[{time.strftime('%H:%M:%S')}] Erreur statuts: {e}")
-
-
-def push_frame(frame):
-    """Encode le frame en JPEG et l'envoie au backend pour le stream."""
-    try:
-        # Redimensionner pour réduire la bande passante
-        h, w = frame.shape[:2]
-        if w > STREAM_WIDTH:
-            scale = STREAM_WIDTH / w
-            frame = cv2.resize(frame, (STREAM_WIDTH, int(h * scale)))
-
-        # Encodage JPEG (qualité 75 = bon compromis qualité/débit)
-        success, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
-        if not success:
-            return
-
-        requests.post(
-            f"{STREAM_URL}/{PARKING_LOT_ID}",
-            data=buffer.tobytes(),
-            headers={
-                "Content-Type": "image/jpeg",
-                "X-Secret-Key": INTERNAL_SECRET,
-            },
-            timeout=0.5,
-        )
-    except Exception:
-        pass   # Le stream est best-effort : on ne bloque jamais la détection
+        print(f"[{time.strftime('%H:%M:%S')}] Send error: {e}")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -136,10 +117,9 @@ if not cap.isOpened():
     print(f"ERROR: Could not open '{VIDEO_PATH}'")
     exit(1)
 
-last_send_time   = 0
-last_stream_time = 0
-frame_count      = 0
-statuses         = ["free"] * len(spots)
+last_send_time = 0
+frame_count    = 0
+statuses       = ["free"] * len(spots)
 
 print("\nDetection running. Press Q in the window to stop.\n")
 
@@ -179,16 +159,9 @@ while True:
     cv2.imshow("Parking Detection", frame)
 
     now = time.time()
-
-    # Envoyer les statuts au backend (1x/seconde)
     if now - last_send_time >= SEND_EVERY:
         send_to_backend(statuses)
         last_send_time = now
-
-    # Pousser le frame annoté pour le stream web (~10 fps)
-    if now - last_stream_time >= STREAM_EVERY:
-        push_frame(frame)
-        last_stream_time = now
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
