@@ -1,27 +1,17 @@
 // src/layouts/AdminLayout.tsx
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import {
-  LayoutGrid,
-  SquareParking,
-  Users,
-  LogOut,
-  UserStar,
-} from "lucide-react";
+import { LayoutGrid, Building2, Users, User, LogOut } from "lucide-react";
 
 const NAV = [
   { path: "/admin", label: "Dashboard", icon: <LayoutGrid size={18} /> },
-  {
-    path: "/admin/parkings",
-    label: "Parkings",
-    icon: <SquareParking size={18} />,
-  },
+  { path: "/admin/parkings", label: "Parkings", icon: <Building2 size={18} /> },
   {
     path: "/admin/managers",
     label: "Gestionnaires",
-    icon: <UserStar size={18} />,
+    icon: <Users size={18} />,
   },
-  { path: "/admin/clients", label: "Clients", icon: <Users size={18} /> },
+  { path: "/admin/clients", label: "Clients", icon: <User size={18} /> },
 ];
 
 export default function AdminLayout({
@@ -105,10 +95,6 @@ export default function AdminLayout({
           <div>
             <h1 style={s.pageTitle}>{activeNav?.label ?? "Backoffice"}</h1>
             <p style={s.pagePath}>{location.pathname}</p>
-          </div>
-          <div style={s.livePill}>
-            <div style={s.liveDot} />
-            <span style={s.liveText}>Système actif</span>
           </div>
         </header>
         <main style={s.main}>{children}</main>
@@ -241,22 +227,5 @@ const s: Record<string, React.CSSProperties> = {
   },
   pageTitle: { fontSize: "20px", fontWeight: 700, color: "#1a1a2e" },
   pagePath: { fontSize: "12px", color: "#94a3b8", marginTop: "2px" },
-  livePill: {
-    display: "flex",
-    alignItems: "center",
-    gap: "7px",
-    background: "#f0fdf4",
-    border: "1px solid #bbf7d0",
-    borderRadius: "20px",
-    padding: "6px 14px",
-  },
-  liveDot: {
-    width: "7px",
-    height: "7px",
-    borderRadius: "50%",
-    background: "#22c55e",
-    animation: "pulse 2s ease infinite",
-  },
-  liveText: { fontSize: "12px", color: "#16a34a", fontWeight: 600 },
   main: { flex: 1, overflowY: "auto", padding: "28px 32px" },
 };
