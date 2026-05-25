@@ -29,6 +29,10 @@ Routers backoffice ajoutés (étapes 1 & 2) :
   DELETE /backoffice/manager/reservations/{id}  → backoffice_reservations
 
   PUT    /backoffice/manager/password           → backoffice_manager_password
+
+Routers stream vidéo MJPEG :
+  POST   /push-frame/{lot_id}                   → stream (detect.py → backend)
+  GET    /stream/{lot_id}                       → stream (backend → navigateur)
 """
 
 from contextlib import asynccontextmanager
@@ -58,6 +62,9 @@ from routes.backoffice_parking_manager import router as backoffice_parking_manag
 from routes.backoffice_clients import router as backoffice_clients_router
 from routes.backoffice_reservations import router as backoffice_reservations_router
 from routes.backoffice_manager_password import router as backoffice_manager_password_router
+
+# ── Router stream MJPEG ───────────────────────────────────────────────────────
+from routes.stream import router as stream_router
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -114,6 +121,11 @@ app.include_router(backoffice_clients_router)
 app.include_router(backoffice_parking_manager_router)
 app.include_router(backoffice_reservations_router)
 app.include_router(backoffice_manager_password_router)
+
+
+# ── Router stream MJPEG ───────────────────────────────────────────────────────
+
+app.include_router(stream_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

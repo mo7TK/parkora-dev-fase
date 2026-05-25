@@ -1,17 +1,27 @@
 // src/layouts/AdminLayout.tsx
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { LayoutGrid, Building2, Users, User, LogOut } from "lucide-react";
+import {
+  LayoutGrid,
+  SquareParking,
+  Users,
+  UserStar,
+  LogOut,
+} from "lucide-react";
 
 const NAV = [
   { path: "/admin", label: "Dashboard", icon: <LayoutGrid size={18} /> },
-  { path: "/admin/parkings", label: "Parkings", icon: <Building2 size={18} /> },
+  {
+    path: "/admin/parkings",
+    label: "Parkings",
+    icon: <SquareParking size={18} />,
+  },
   {
     path: "/admin/managers",
     label: "Gestionnaires",
-    icon: <Users size={18} />,
+    icon: <UserStar size={18} />,
   },
-  { path: "/admin/clients", label: "Clients", icon: <User size={18} /> },
+  { path: "/admin/clients", label: "Clients", icon: <Users size={18} /> },
 ];
 
 export default function AdminLayout({

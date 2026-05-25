@@ -2,14 +2,20 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useManagerParking } from "../context/ManagerContext";
-import { LayoutGrid, Building2, Calendar, Camera, LogOut } from "lucide-react";
+import {
+  LayoutGrid,
+  SquareParking,
+  Calendar,
+  Cctv,
+  LogOut,
+} from "lucide-react";
 
 const NAV = [
   { path: "/manager", label: "Dashboard", icon: <LayoutGrid size={18} /> },
   {
     path: "/manager/parking",
     label: "Mon Parking",
-    icon: <Building2 size={18} />,
+    icon: <SquareParking size={18} />,
   },
   {
     path: "/manager/reservations",
@@ -19,7 +25,7 @@ const NAV = [
   {
     path: "/manager/livestream",
     label: "Caméra Live",
-    icon: <Camera size={18} />,
+    icon: <Cctv size={18} />,
   },
 ];
 

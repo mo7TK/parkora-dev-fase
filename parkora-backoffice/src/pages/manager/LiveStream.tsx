@@ -2,44 +2,38 @@
 import { useEffect, useRef, useState } from "react";
 import { useManagerParking } from "../../context/ManagerContext";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 const WS_URL = import.meta.env.VITE_WS_URL as string;
 
 type SpotStatus = "free" | "occupied" | "reserved";
-type ConnStatus = "connecting" | "connected" | "disconnected";
 interface Spot {
   id: number;
   status: SpotStatus;
 }
 
-const STATUS: Record<SpotStatus, { color: string; bg: string; label: string }> =
-  {
-    free: { color: "#22c55e", bg: "#f0fdf4", label: "Libre" },
-    occupied: { color: "#ef4444", bg: "#fef2f2", label: "Occupé" },
-    reserved: { color: "#f97316", bg: "#fff7ed", label: "Réservé" },
-  };
-
 export default function LiveStream() {
   const { parking, loading } = useManagerParking();
 
   const [spots, setSpots] = useState<Spot[]>([]);
-  const [connStatus, setConnStatus] = useState<ConnStatus>("connecting");
-  const [lastUpdate, setLastUpdate] = useState("");
-  const wsRef = useRef<WebSocket | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const [showStream, setShowStream] = useState(false); // bascule après 2s (MJPEG ne déclenche pas onLoad)
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const wsRef = useRef<WebSocket | null>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // ── WebSocket spots ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!parking?.id) return;
 
     function connect() {
-      setConnStatus("connecting");
       const ws = new WebSocket(`${WS_URL}/${parking!.id}`);
       wsRef.current = ws;
-      ws.onopen = () => setConnStatus("connected");
       ws.onmessage = (e) => {
         setSpots(JSON.parse(e.data).spots ?? []);
-        setLastUpdate(new Date().toLocaleTimeString("fr-FR"));
       };
       ws.onclose = () => {
-        setConnStatus("disconnected");
         setTimeout(connect, 3000);
       };
       ws.onerror = () => ws.close();
@@ -48,270 +42,214 @@ export default function LiveStream() {
     return () => wsRef.current?.close();
   }, [parking?.id]);
 
+  // ── Timer stream — MJPEG ne déclenche pas onLoad, on bascule après 2s ──────
+  useEffect(() => {
+    if (!parking?.id || imgError) return;
+    setShowStream(false);
+    const t = setTimeout(() => setShowStream(true), 2000);
+    return () => clearTimeout(t);
+  }, [parking?.id, imgError]);
+
+  // ── Fullscreen API ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    function onFsChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!playerRef.current) return;
+    if (!document.fullscreenElement) {
+      playerRef.current.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  // ── URL stream MJPEG ───────────────────────────────────────────────────────
+  const streamUrl = parking?.id
+    ? `${BACKEND_URL}/stream/${parking.id}?t=${Date.now()}`
+    : null;
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const isPaid = parking?.type === "paid";
+  const total = spots.length || parking?.total_spots || 0;
+  const free = spots.filter((s) => s.status === "free").length;
+  const occupied = spots.filter((s) => s.status === "occupied").length;
+  const reserved = spots.filter((s) => s.status === "reserved").length;
+
   if (loading) return <Loader />;
   if (!parking)
     return <div style={{ color: "#ef4444" }}>Parking introuvable.</div>;
 
-  const free = spots.filter((s) => s.status === "free").length;
-  const occupied = spots.filter((s) => s.status === "occupied").length;
-  const reserved = spots.filter((s) => s.status === "reserved").length;
-  const total = spots.length || parking.total_spots;
-
-  const connColor = {
-    connecting: "#f59e0b",
-    connected: "#22c55e",
-    disconnected: "#ef4444",
-  }[connStatus];
-  const connBg = {
-    connecting: "#fef9c3",
-    connected: "#f0fdf4",
-    disconnected: "#fef2f2",
-  }[connStatus];
-  const connBorder = {
-    connecting: "#fde68a",
-    connected: "#bbf7d0",
-    disconnected: "#fecaca",
-  }[connStatus];
-  const connLabel = {
-    connecting: "Connexion…",
-    connected: "En direct",
-    disconnected: "Déconnecté — reconnexion dans 3s",
-  }[connStatus];
-
   return (
     <div style={s.page}>
-      {/* ── En-tête ──────────────────────────────────────────────────────── */}
-      <div style={s.pageHeader}>
-        <div>
-          <h2 style={s.pageTitle}>Caméra Live</h2>
-          <p style={s.pageSub}>{parking.name} — détection YOLO en temps réel</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          {lastUpdate && (
-            <span style={s.lastUpdate}>Mis à jour à {lastUpdate}</span>
-          )}
-          <div
-            style={{
-              ...s.connPill,
-              background: connBg,
-              border: `1px solid ${connBorder}`,
-            }}
-          >
-            <div style={{ ...s.connDot, background: connColor }} />
-            <span
-              style={{ color: connColor, fontSize: "12px", fontWeight: 600 }}
-            >
-              {connLabel}
-            </span>
-          </div>
-        </div>
+      {/* ── En-tête ───────────────────────────────────────────────────────── */}
+      <div>
+        <h1 style={s.title}>Diffusion en direct — {parking.name}</h1>
       </div>
 
-      {/* ── Stats ────────────────────────────────────────────────────────── */}
-      <div style={s.statsRow}>
-        {(["free", "occupied", "reserved"] as SpotStatus[]).map((st) => {
-          const cfg = STATUS[st];
-          const count = spots.filter((s) => s.status === st).length;
-          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-          return (
-            <div
-              key={st}
-              style={{ ...s.statCard, borderColor: cfg.color + "55" }}
-            >
-              <div
-                style={{
-                  fontSize: "28px",
-                  fontWeight: 800,
-                  color: cfg.color,
-                  lineHeight: 1,
-                }}
-              >
-                {count}
-              </div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#64748b",
-                  fontWeight: 600,
-                  marginTop: "4px",
-                }}
-              >
-                {cfg.label}
-              </div>
-              <div
-                style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}
-              >
-                {pct}% des places
-              </div>
-            </div>
-          );
-        })}
-        <div style={s.statCard}>
-          <div
-            style={{
-              fontSize: "28px",
-              fontWeight: 800,
-              color: "#1a1a2e",
-              lineHeight: 1,
-            }}
-          >
-            {total}
-          </div>
-          <div
-            style={{
-              fontSize: "13px",
-              color: "#64748b",
-              fontWeight: 600,
-              marginTop: "4px",
-            }}
-          >
-            Total
-          </div>
-          <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
-            places configurées
-          </div>
-        </div>
-      </div>
-
-      {/* ── Barre globale ────────────────────────────────────────────────── */}
-      {spots.length > 0 && (
-        <div style={s.barCard}>
-          <div style={s.barHeader}>
-            <span style={s.barTitle}>Occupation globale</span>
-            <span style={{ fontSize: "13px", color: "#94a3b8" }}>
-              {occupied + reserved} / {total} places utilisées
-            </span>
-          </div>
-          <div style={s.barTrack}>
-            <div
-              style={{
-                ...s.barSeg,
-                width: `${(free / total) * 100}%`,
-                background: "#22c55e",
-              }}
-            />
-            <div
-              style={{
-                ...s.barSeg,
-                width: `${(reserved / total) * 100}%`,
-                background: "#f97316",
-              }}
-            />
-            <div
-              style={{
-                ...s.barSeg,
-                width: `${(occupied / total) * 100}%`,
-                background: "#ef4444",
-              }}
-            />
-          </div>
-          <div style={s.barLegend}>
-            {[
-              { color: "#22c55e", label: `Libres (${free})` },
-              { color: "#f97316", label: `Réservés (${reserved})` },
-              { color: "#ef4444", label: `Occupés (${occupied})` },
-            ].map((l) => (
-              <div
-                key={l.label}
-                style={{ display: "flex", alignItems: "center", gap: "6px" }}
-              >
-                <div
-                  style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "2px",
-                    background: l.color,
-                  }}
-                />
-                <span style={{ fontSize: "12px", color: "#64748b" }}>
-                  {l.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Grille des spots ─────────────────────────────────────────────── */}
-      <div style={s.gridCard}>
-        <div style={s.gridHeader}>
-          <span style={s.gridTitle}>Vue par emplacement</span>
-          <div style={s.gridLegend}>
-            {(["free", "occupied", "reserved"] as SpotStatus[]).map((st) => (
-              <div
-                key={st}
-                style={{ display: "flex", alignItems: "center", gap: "5px" }}
-              >
-                <div
-                  style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "50%",
-                    background: STATUS[st].color,
-                  }}
-                />
-                <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                  {STATUS[st].label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {spots.length === 0 ? (
-          <div style={s.waitingBox}>
-            <div style={s.waitingSpinner} />
-            <div>
-              <p style={s.waitingTitle}>En attente des données caméra…</p>
-              <p style={s.waitingHint}>
-                Assurez-vous que <code style={s.code}>detect.py</code> tourne
-                avec le bon <code style={s.code}>PARKING_LOT_ID</code>.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div style={s.spotsGrid}>
-            {spots.map((spot) => {
-              const cfg = STATUS[spot.status] ?? STATUS.free;
-              return (
-                <div
-                  key={spot.id}
-                  style={{
-                    ...s.spotCard,
-                    background: cfg.bg,
-                    borderColor: cfg.color + "55",
-                  }}
-                >
-                  <div style={{ ...s.spotDot, background: cfg.color }} />
-                  <div
-                    style={{
-                      fontSize: "22px",
-                      fontWeight: 800,
-                      color: cfg.color,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {spot.id}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      color: cfg.color,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    {cfg.label}
+      {/* ── Player MJPEG ──────────────────────────────────────────────────── */}
+      <div ref={playerRef} style={s.playerWrap}>
+        {streamUrl && !imgError ? (
+          <>
+            {/* Animation de chargement — disparaît après 2s quand le flux arrive */}
+            {!showStream && (
+              <div style={s.streamLoading}>
+                <div style={s.spinnerWrap}>
+                  <div style={s.spinnerRing} />
+                  <div style={s.spinnerCenter}>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.7)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M23 7l-7 5 7 5V7z" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
                   </div>
                 </div>
-              );
-            })}
+                <p style={s.loadingText}>Connexion au flux vidéo…</p>
+              </div>
+            )}
+
+            <img
+              ref={imgRef}
+              src={streamUrl}
+              style={{ ...s.videoImg, opacity: showStream ? 1 : 0 }}
+              alt="Flux caméra en direct"
+              onError={() => setImgError(true)}
+            />
+          </>
+        ) : (
+          /* ── No signal ─────────────────────────────────────────────────── */
+          <div style={s.noSignal}>
+            <div style={s.noSignalIcon}>📷</div>
+            <p style={s.noSignalTitle}>Aucun signal caméra</p>
+            <p style={s.noSignalHint}>
+              Lancez <code style={s.code}>detect.py</code> avec le bon{" "}
+              <code style={s.code}>PARKING_LOT_ID</code>
+            </p>
+            {imgError && (
+              <button
+                style={s.retryBtn}
+                onClick={() => {
+                  setImgError(false);
+                  setShowStream(false);
+                }}
+              >
+                Réessayer
+              </button>
+            )}
           </div>
         )}
+
+        {/* Overlay : badge LIVE + bouton fullscreen */}
+        <div style={s.playerOverlay}>
+          <div style={s.liveBadge}>
+            <div style={s.liveDot} />
+            LIVE
+          </div>
+          <button
+            style={s.fsBtn}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+          >
+            {isFullscreen ? (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+              </svg>
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      {/* ── Stats compactes ───────────────────────────────────────────────── */}
+      <div
+        style={{
+          ...s.counters,
+          gridTemplateColumns: isPaid ? "repeat(4, 1fr)" : "repeat(3, 1fr)",
+        }}
+      >
+        <Counter value={free} label="Libres" color="#22c55e" />
+        <Counter value={occupied} label="Occupés" color="#ef4444" />
+        {isPaid && (
+          <Counter value={reserved} label="Réservés" color="#f97316" />
+        )}
+        <Counter value={total} label="Total" color="#1a73e8" />
+      </div>
+
+      <style>{`
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+        @keyframes pulse { 0%,100% { transform: scale(1);   opacity:0.5; }
+                           50%     { transform: scale(1.35); opacity:0;   } }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Sous-composants ───────────────────────────────────────────────────────────
+
+function Counter({
+  value,
+  label,
+  color,
+}: {
+  value: number;
+  label: string;
+  color: string;
+}) {
+  return (
+    <div style={{ ...s.counter, borderColor: color + "35" }}>
+      <span style={{ fontSize: "20px", fontWeight: 800, color, lineHeight: 1 }}>
+        {value}
+      </span>
+      <span
+        style={{
+          fontSize: "11px",
+          color: "#94a3b8",
+          fontWeight: 600,
+          marginTop: "2px",
+        }}
+      >
+        {label}
+      </span>
     </div>
   );
 }
@@ -336,128 +274,174 @@ function Loader() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const s: Record<string, React.CSSProperties> = {
-  page: { display: "flex", flexDirection: "column", gap: "20px" },
-  pageHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  pageTitle: { fontSize: "22px", fontWeight: 700, color: "#1a1a2e" },
-  pageSub: { fontSize: "13px", color: "#94a3b8", marginTop: "3px" },
-  lastUpdate: { fontSize: "12px", color: "#94a3b8" },
-  connPill: {
-    display: "flex",
-    alignItems: "center",
-    gap: "7px",
-    borderRadius: "20px",
-    padding: "7px 14px",
-  },
-  connDot: { width: "7px", height: "7px", borderRadius: "50%", flexShrink: 0 },
-  statsRow: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "14px",
-  },
-  statCard: {
-    background: "#fff",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "20px",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-  },
-  barCard: {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-  barHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  barTitle: { fontSize: "14px", fontWeight: 700, color: "#1a1a2e" },
-  barTrack: {
-    height: "8px",
-    borderRadius: "4px",
-    background: "#f0f4f8",
-    display: "flex",
-    overflow: "hidden",
-  },
-  barSeg: { height: "100%", transition: "width 0.5s ease" },
-  barLegend: { display: "flex", gap: "20px" },
-  gridCard: {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    overflow: "hidden",
-  },
-  gridHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "14px 20px",
-    borderBottom: "1px solid #f1f5f9",
-    background: "#f8fafc",
-  },
-  gridTitle: { fontSize: "13px", fontWeight: 700, color: "#1a1a2e" },
-  gridLegend: { display: "flex", gap: "16px" },
-  waitingBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
-    padding: "40px 24px",
-  },
-  waitingSpinner: {
-    width: "32px",
-    height: "32px",
-    border: "3px solid #e2e8f0",
-    borderTop: "3px solid #1a73e8",
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-    flexShrink: 0,
-  },
-  waitingTitle: {
-    fontSize: "15px",
-    fontWeight: 600,
-    color: "#1a1a2e",
-    marginBottom: "6px",
-  },
-  waitingHint: { fontSize: "13px", color: "#94a3b8", lineHeight: "1.7" },
-  code: {
-    background: "#f0f4f8",
-    borderRadius: "4px",
-    padding: "1px 6px",
-    fontSize: "12px",
-    fontFamily: "monospace",
-    color: "#1a73e8",
-  },
-  spotsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-    gap: "12px",
-    padding: "20px",
-  },
-  spotCard: {
-    borderRadius: "12px",
-    border: "1.5px solid",
-    padding: "14px 10px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "6px",
+  page: { display: "flex", flexDirection: "column", gap: "14px" },
+
+  // En-tête
+  title: { fontSize: "20px", fontWeight: 700, color: "#1a1a2e" },
+  sub: { fontSize: "13px", color: "#94a3b8", marginTop: "2px" },
+
+  // Player
+  playerWrap: {
     position: "relative",
+    background: "#0f1117",
+    borderRadius: "14px",
+    overflow: "hidden",
+    border: "1px solid #1e2535",
+    aspectRatio: "16/9",
+    maxHeight: "360px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  spotDot: {
+  videoImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    display: "block",
+    transition: "opacity 0.3s ease",
+  },
+
+  // Animation chargement flux
+  streamLoading: {
     position: "absolute",
-    top: "8px",
-    right: "8px",
-    width: "7px",
-    height: "7px",
+    inset: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px",
+    background: "#0f1117",
+    zIndex: 2,
+  },
+  // Cercle pulsant derrière le spinner
+  pulseRing: {
+    position: "absolute",
+    width: "70px",
+    height: "70px",
     borderRadius: "50%",
+    border: "2px solid #1a73e8",
+    animation: "pulse 1.8s ease-out infinite",
+  },
+  // Conteneur spinner + icône
+  spinnerWrap: {
+    position: "relative",
+    width: "52px",
+    height: "52px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  spinnerRing: {
+    position: "absolute",
+    inset: 0,
+    borderRadius: "50%",
+    border: "2.5px solid rgba(255,255,255,0.08)",
+    borderTop: "2.5px solid #1a73e8",
+    animation: "spin 1s linear infinite",
+  },
+  spinnerCenter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    fontSize: "13px",
+    color: "rgba(255,255,255,0.55)",
+    fontWeight: 500,
+    marginTop: "4px",
+  },
+  // Overlay
+  playerOverlay: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    padding: "10px 12px",
+    pointerEvents: "none",
+  },
+  liveBadge: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    background: "rgba(239,68,68,0.88)",
+    borderRadius: "6px",
+    padding: "3px 9px",
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "#fff",
+    letterSpacing: "0.5px",
+    pointerEvents: "none",
+  },
+  liveDot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    background: "#fff",
+    animation: "blink 1.2s ease-in-out infinite",
+  },
+  fsBtn: {
+    background: "rgba(0,0,0,0.55)",
+    border: "none",
+    borderRadius: "8px",
+    color: "#fff",
+    cursor: "pointer",
+    padding: "6px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "all",
+    backdropFilter: "blur(4px)",
+  },
+
+  // No signal
+  noSignal: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "10px",
+    padding: "40px 20px",
+  },
+  noSignalIcon: { fontSize: "38px" },
+  noSignalTitle: { fontSize: "15px", fontWeight: 700, color: "#94a3b8" },
+  noSignalHint: { fontSize: "12px", color: "#64748b", textAlign: "center" },
+  retryBtn: {
+    marginTop: "6px",
+    background: "#1a73e8",
+    border: "none",
+    borderRadius: "8px",
+    color: "#fff",
+    padding: "7px 16px",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+
+  // Compteurs — hauteur réduite
+  counters: {
+    display: "grid",
+    gap: "10px",
+  },
+  counter: {
+    background: "#fff",
+    border: "1.5px solid",
+    borderRadius: "10px",
+    padding: "8px 14px", // padding réduit vs avant
+    display: "flex",
+    flexDirection: "column",
+    gap: "1px",
+  },
+
+  code: {
+    background: "#1e2535",
+    borderRadius: "4px",
+    padding: "1px 5px",
+    fontSize: "11px",
+    fontFamily: "monospace",
+    color: "#60a5fa",
   },
 };

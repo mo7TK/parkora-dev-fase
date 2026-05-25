@@ -1,34 +1,41 @@
-import os
 import cv2
 import json
 import time
 import numpy as np
 import requests
 from ultralytics import YOLO
+import os
+from dotenv import load_dotenv
+
+# ── Charger .env ──────────────────────────────────────────────────────────────
+_env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+load_dotenv(dotenv_path=_env_path)
 
 # ── Configuration ────────────────────────────────────────────────────────────
 VIDEO_PATH      = 1
 SPOTS_FILE      = "spots.json"
 BACKEND_URL     = "http://127.0.0.1:8000/update-spots"
-SEND_EVERY      = 1.0    # seconds between each POST to the backend
-CONFIDENCE      = 0.35   # YOLO confidence threshold (0 to 1)
+FRAME_URL       = "http://127.0.0.1:8000/push-frame"
+SEND_EVERY      = 1.0
+FRAME_EVERY     = 0.1
+CONFIDENCE      = 0.35
 
 # ── Parking lot identity ──────────────────────────────────────────────────────
-# Paste the MongoDB id printed by seed.py here.
 PARKING_LOT_ID  = "69d9422ef052a357e475c52c"
 
-# ── Internal secret key ───────────────────────────────────────────────────────
-# Must match INTERNAL_SECRET in your backend .env file.
-INTERNAL_SECRET = "parkora-dev-secret"
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Secret lu depuis .env ─────────────────────────────────────────────────────
+INTERNAL_SECRET = os.getenv("INTERNAL_SECRET", "parkora-dev-secret")
 
 # ── Performance tuning ───────────────────────────────────────────────────────
-INFER_EVERY = 5     # run YOLO only on every Nth frame
-INFER_WIDTH = 640   # resize frame to this width before inference (None = original)
+INFER_EVERY = 5
+INFER_WIDTH = 640
+
+# ── Stream MJPEG ─────────────────────────────────────────────────────────────
+STREAM_WIDTH   = 580
+STREAM_QUALITY = 50
 
 # ── COCO class IDs ───────────────────────────────────────────────────────────
 VEHICLE_CLASSES = {2, 3, 5, 7}
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def load_spots(path):
@@ -56,7 +63,8 @@ def compute_statuses(spots, vehicle_boxes):
     return statuses
 
 
-def draw_frame(frame, spots, statuses):
+def draw_spots(frame, spots, statuses):
+    """Dessine les polygones de spots par-dessus le rendu YOLO natif."""
     for i, (spot, status) in enumerate(zip(spots, statuses)):
         color = (0, 200, 0) if status == "free" else (0, 0, 220)
         overlay = frame.copy()
@@ -75,23 +83,12 @@ def draw_frame(frame, spots, statuses):
                 (10, 27), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
 
-def send_to_backend(statuses):
-    """
-    POST current spot statuses to the backend.
-    Now includes:
-      - lot_id in the body  → tells the backend which parking lot this is
-      - X-Secret-Key header → proves this request comes from detect.py
-    """
+def send_statuses(statuses):
     payload = {
         "lot_id": PARKING_LOT_ID,
-        "spots": [
-            {"id": i + 1, "status": status}
-            for i, status in enumerate(statuses)
-        ],
+        "spots": [{"id": i + 1, "status": s} for i, s in enumerate(statuses)],
     }
-    headers = {
-        "X-Secret-Key": INTERNAL_SECRET,
-    }
+    headers = {"X-Secret-Key": INTERNAL_SECRET}
     try:
         response = requests.post(BACKEND_URL, json=payload, headers=headers, timeout=1)
         print(f"[{time.strftime('%H:%M:%S')}] Sent → {response.status_code} | "
@@ -102,7 +99,27 @@ def send_to_backend(statuses):
         print(f"[{time.strftime('%H:%M:%S')}] Send error: {e}")
 
 
+def send_frame(frame):
+    h, w   = frame.shape[:2]
+    scale  = STREAM_WIDTH / w
+    small  = cv2.resize(frame, (STREAM_WIDTH, int(h * scale)))
+    ret, buf = cv2.imencode(".jpg", small, [int(cv2.IMWRITE_JPEG_QUALITY), STREAM_QUALITY])
+    if not ret:
+        return
+    try:
+        requests.post(
+            f"{FRAME_URL}/{PARKING_LOT_ID}",
+            data=buf.tobytes(),
+            headers={"X-Secret-Key": INTERNAL_SECRET, "Content-Type": "application/octet-stream"},
+            timeout=0.5,
+        )
+    except Exception:
+        pass
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
+
+print(f"INTERNAL_SECRET loaded: {'*' * len(INTERNAL_SECRET)} ({len(INTERNAL_SECRET)} chars)")
 
 print("Loading spots...")
 spots = load_spots(SPOTS_FILE)
@@ -117,9 +134,12 @@ if not cap.isOpened():
     print(f"ERROR: Could not open '{VIDEO_PATH}'")
     exit(1)
 
-last_send_time = 0
-frame_count    = 0
-statuses       = ["free"] * len(spots)
+last_send_time  = 0
+last_frame_time = 0
+frame_count     = 0
+statuses        = ["free"] * len(spots)
+vehicle_boxes   = []
+annotated_frame = None  # last YOLO-rendered frame (results.plot()), reused between inferences
 
 print("\nDetection running. Press Q in the window to stop.\n")
 
@@ -142,6 +162,12 @@ while True:
 
         results = model(infer_frame, verbose=False)[0]
 
+        # YOLO native rendering: boxes + class labels + confidence
+        yolo_drawn = results.plot()
+        if scale != 1.0:
+            yolo_drawn = cv2.resize(yolo_drawn, (frame.shape[1], frame.shape[0]))
+        annotated_frame = yolo_drawn
+
         vehicle_boxes = []
         for box in results.boxes:
             cls_id     = int(box.cls[0])
@@ -155,13 +181,23 @@ while True:
 
         statuses = compute_statuses(spots, vehicle_boxes)
 
-    draw_frame(frame, spots, statuses)
-    cv2.imshow("Parking Detection", frame)
+    # Show YOLO-annotated frame when available, raw frame otherwise
+    display = annotated_frame.copy() if annotated_frame is not None else frame.copy()
+
+    # Draw parking spot polygons on top of the YOLO annotations
+    draw_spots(display, spots, statuses)
+
+    cv2.imshow("Parking Detection - EPB", display)
 
     now = time.time()
+
     if now - last_send_time >= SEND_EVERY:
-        send_to_backend(statuses)
+        send_statuses(statuses)
         last_send_time = now
+
+    if now - last_frame_time >= FRAME_EVERY:
+        send_frame(display)
+        last_frame_time = now
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
