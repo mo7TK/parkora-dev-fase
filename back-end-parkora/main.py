@@ -50,6 +50,7 @@ from routes.spots import router as spots_router
 from routes.parking_lots import router as parking_lots_router
 from routes.favorites import router as favorites_router
 from routes.reservations import router as reservations_router
+from routes.profile_route import router as profile_router
 
 # ── Routers backoffice — auth ─────────────────────────────────────────────────
 from routes.backoffice_admin_auth import router as backoffice_admin_auth_router
@@ -104,7 +105,7 @@ app.include_router(spots_router)
 app.include_router(parking_lots_router)
 app.include_router(favorites_router)
 app.include_router(reservations_router)
-
+app.include_router(profile_router)
 
 # ── Routers backoffice ────────────────────────────────────────────────────────
 
