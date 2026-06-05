@@ -48,11 +48,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: 24,
+    width: 33.5,
     borderRadius: 13,
     paddingHorizontal: 4,
     borderWidth: 1.5,
     borderColor: "#fff",
-    gap: 4,
+    gap: 2.5,
   },
   pText: {
     fontSize: 11,

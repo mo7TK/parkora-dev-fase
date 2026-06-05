@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRef } from "react";
 
 import { BACKEND_URL } from "@/src/constants/config";
 
@@ -44,7 +45,6 @@ export default function FavoriteCard({
   onToggleFavorite,
 }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
-  const barAnim = useRef(new Animated.Value(0)).current;
   const heartScale = useRef(new Animated.Value(1)).current;
 
   const heroUri = heroImage
@@ -54,14 +54,7 @@ export default function FavoriteCard({
   useEffect(() => {
     fetch(`${BACKEND_URL}/spots-summary/${lotId}`)
       .then((r) => r.json())
-      .then((data: Summary) => {
-        setSummary(data);
-        Animated.timing(barAnim, {
-          toValue: data.total > 0 ? data.free / data.total : 0,
-          duration: 700,
-          useNativeDriver: false,
-        }).start();
-      })
+      .then((data: Summary) => setSummary(data))
       .catch(() => setSummary(null));
   }, [lotId]);
 
@@ -106,12 +99,11 @@ export default function FavoriteCard({
 
       {/* ── Main content ─────────────────────────────────────────────── */}
       <View style={styles.body}>
-        {/* Top row: name + heart */}
+        {/* Nom + cœur */}
         <View style={styles.topRow}>
           <Text style={styles.name} numberOfLines={2}>
             {name}
           </Text>
-
           <TouchableOpacity
             onPress={handleHeartPress}
             hitSlop={10}
@@ -127,46 +119,17 @@ export default function FavoriteCard({
           </TouchableOpacity>
         </View>
 
-        {/* Stats row */}
+        {/* Places libres — texte simple coloré, sans barre */}
         {summary ? (
-          <>
-            <View style={styles.statsRow}>
-              {/* Libres */}
-              <View style={styles.statChip}>
-                <View style={[styles.chipDot, { backgroundColor: accent }]} />
-                <Text style={[styles.chipCount, { color: accent }]}>
-                  {summary.free}
-                </Text>
-                <Text style={styles.chipLabel}> libres</Text>
-              </View>
-
-              {/* Occupées */}
-              <View style={styles.statChip}>
-                <View
-                  style={[styles.chipDot, { backgroundColor: "#94a3b8" }]}
-                />
-                <Text style={[styles.chipCount, { color: "#64748b" }]}>
-                  {summary.occupied}
-                </Text>
-                <Text style={styles.chipLabel}> occupées</Text>
-              </View>
-
-              {/* Total */}
-              <View style={styles.statChip}>
-                <Text style={styles.chipLabel}>{totalSpots} total</Text>
-              </View>
-            </View>
-
-            {/* Barre de disponibilité */}
-            <View style={styles.barTrack}>
-              <Animated.View
-                style={[
-                  styles.barFill,
-                  { backgroundColor: accent, flex: barAnim },
-                ]}
-              />
-            </View>
-          </>
+          <View style={styles.statsRow}>
+            <View style={[styles.dot, { backgroundColor: accent }]} />
+            <Text style={[styles.spotsCount, { color: accent }]}>
+              {summary.free === 0 ? "Complet" : `${summary.free}`}
+            </Text>
+            {summary.free > 0 && (
+              <Text style={styles.spotsLabel}> libres / {totalSpots}</Text>
+            )}
+          </View>
         ) : (
           <ActivityIndicator
             size="small"
@@ -185,23 +148,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 18,
     overflow: "hidden",
-    height: 120,
+    height: 110,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
   },
-
-  // ── Hero ──────────────────────────────────────────────────────────────
-  heroWrap: {
-    width: 110,
-    height: 120,
-  },
-  heroImage: {
-    width: 110,
-    height: 120,
-  },
+  heroWrap: { width: 110, height: 110 },
+  heroImage: { width: 110, height: 110 },
   heroPlaceholder: {
     width: "100%",
     height: "100%",
@@ -214,22 +169,18 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "rgba(255,255,255,0.3)",
   },
-
-  // ── Body ──────────────────────────────────────────────────────────────
   body: {
     flex: 1,
     paddingVertical: 14,
     paddingHorizontal: 14,
     justifyContent: "space-between",
   },
-
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
-
   name: {
     flex: 1,
     fontSize: 15,
@@ -238,54 +189,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.2,
   },
-
-  heartBtn: {
-    paddingTop: 1,
-  },
-
-  // ── Stats ─────────────────────────────────────────────────────────────
+  heartBtn: { paddingTop: 1 },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-    flexWrap: "wrap",
+    gap: 5,
+    marginTop: 6,
   },
-
-  statChip: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  chipDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginRight: 4,
-  },
-
-  chipCount: {
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
-  chipLabel: {
-    fontSize: 12,
-    color: "#94a3b8",
-    fontWeight: "500",
-  },
-
-  // ── Bar ───────────────────────────────────────────────────────────────
-  barTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#f1f5f9",
-    flexDirection: "row",
-    overflow: "hidden",
-    marginTop: 10,
-  },
-
-  barFill: {
-    borderRadius: 2,
-  },
+  dot: { width: 7, height: 7, borderRadius: 3.5 },
+  spotsCount: { fontSize: 13, fontWeight: "800" },
+  spotsLabel: { fontSize: 12, color: "#94a3b8", fontWeight: "500" },
 });

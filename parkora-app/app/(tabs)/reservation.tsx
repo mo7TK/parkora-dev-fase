@@ -224,7 +224,7 @@ function ReservationCard({
       {/* Top row */}
       <View style={s.cardTop}>
         <View style={s.cardIcon}>
-          <MaterialCommunityIcons name="shield-car" size={22} color="#7c3aed" />
+          <MaterialCommunityIcons name="car-clock" size={22} color="#7c3aed" />
         </View>
         <View style={s.cardMeta}>
           <Text style={s.cardLotName} numberOfLines={1}>

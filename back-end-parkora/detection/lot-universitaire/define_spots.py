@@ -5,7 +5,7 @@ import numpy as np
 # ── Configuration ────────────────────────────────────────────────────────────
 VIDEO_PATH = 1   # place your video file next to this script
 SPOTS_FILE = "spots.json"    # where the spot coordinates will be saved
-NUM_SPOTS  = 14              # how many spots you want to define
+NUM_SPOTS  = 20              # how many spots you want to define
 # ─────────────────────────────────────────────────────────────────────────────
 
 spots           = []   # list of confirmed polygons, each is [(x,y),(x,y),(x,y),(x,y)]

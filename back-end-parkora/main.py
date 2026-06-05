@@ -33,8 +33,13 @@ Routers backoffice ajoutés (étapes 1 & 2) :
 Routers stream vidéo MJPEG :
   POST   /push-frame/{lot_id}                   → stream (detect.py → backend)
   GET    /stream/{lot_id}                       → stream (backend → navigateur)
+
+Scheduler :
+  Tâche asyncio lancée au démarrage qui passe automatiquement
+  les réservations expirées de "confirmed" à "completed" toutes les 60s.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -43,6 +48,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import connect_db, close_db
+from scheduler import start_scheduler
 
 # ── Routers app mobile ────────────────────────────────────────────────────────
 from routes.auth import router as auth_router
@@ -72,8 +78,23 @@ from routes.stream import router as stream_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Connexion MongoDB
     await connect_db()
+
+    # Lancement du scheduler en arrière-plan
+    # asyncio.create_task() crée une coroutine non-bloquante qui tourne
+    # en parallèle de FastAPI pendant toute la durée de vie du serveur.
+    scheduler_task = asyncio.create_task(start_scheduler())
+
     yield
+
+    # Arrêt propre : on annule le scheduler avant de fermer la DB
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        print("[Scheduler] Arrêté proprement.")
+
     await close_db()
 
 

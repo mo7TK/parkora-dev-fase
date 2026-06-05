@@ -117,7 +117,6 @@ export default function Details() {
     });
   }
 
-  // ── NOUVELLE LOGIQUE : on va d'abord sur le formulaire date/heure ──────────
   function handleReserve() {
     router.push({
       pathname: "/(parking)/reservation-form",
@@ -133,6 +132,7 @@ export default function Details() {
   const heroImageUri = lotDetails?.hero_image
     ? `${BACKEND_URL}/assets/images/entrance/${lotDetails.hero_image}`
     : null;
+
   const isPaid = (type ?? lotDetails?.type) === "paid";
   const isOpen = lotDetails?.is_open ?? true;
 
@@ -162,7 +162,7 @@ export default function Details() {
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <View style={s.hero}>
         {heroImageUri ? (
           <Image
@@ -178,7 +178,8 @@ export default function Details() {
           style={s.heroGradient}
         >
           <View style={s.heroBottom}>
-            <View>
+            {/* Nom à gauche, badge en bas à droite */}
+            <View style={{ flex: 1 }}>
               <Text style={s.heroName}>{name}</Text>
               <Text style={s.heroSubtitle}>
                 Appuyez sur "Naviguer" pour l'itinéraire
@@ -213,7 +214,7 @@ export default function Details() {
         </TouchableOpacity>
       </View>
 
-      {/* Open/Closed */}
+      {/* ── Open/Closed ──────────────────────────────────────────────────── */}
       <View style={s.openBadgeRow}>
         <View
           style={[
@@ -233,7 +234,7 @@ export default function Details() {
         </View>
       </View>
 
-      {/* Stats */}
+      {/* ── Stats ────────────────────────────────────────────────────────── */}
       <View style={s.card}>
         <View style={s.cardRow}>
           <StatItem label="Total" value={totalSpots} />
@@ -263,22 +264,6 @@ export default function Details() {
           )}
         </View>
       </View>
-
-      {summary && Number(totalSpots) > 0 && (
-        <View style={s.barWrap}>
-          <View style={s.barTrack}>
-            <View
-              style={[
-                s.barFill,
-                { width: `${(summary.free / Number(totalSpots)) * 100}%` },
-              ]}
-            />
-          </View>
-          <Text style={s.barLabel}>
-            {Math.round((summary.free / Number(totalSpots)) * 100)}% disponible
-          </Text>
-        </View>
-      )}
 
       {lotDetails?.address && (
         <InfoSection icon="location-outline" title="Adresse">
@@ -400,11 +385,25 @@ const s = StyleSheet.create({
   heroBottom: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "flex-end", // badge collé en bas à droite
   },
-  heroName: { fontSize: 24, fontWeight: "700", color: "#fff", marginBottom: 4 },
+  heroName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 4,
+    flexShrink: 1,
+  },
   heroSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.75)" },
-  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  // Badge fixé en bas à droite, taille minimale, ne pousse pas le nom
+  typeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginLeft: 10,
+    flexShrink: 0,
+    alignSelf: "flex-end",
+  },
   typeBadgeText: { fontSize: 12, fontWeight: "700", color: "#fff" },
   heartBtn: {
     position: "absolute",
@@ -446,15 +445,7 @@ const s = StyleSheet.create({
   statNumber: { fontSize: 28, fontWeight: "700", color: "#2e1a1a" },
   statLabel: { fontSize: 12, color: "#888", marginTop: 2 },
   divider: { width: 1, backgroundColor: "#eee", marginVertical: 4 },
-  barWrap: { marginHorizontal: 16, marginBottom: 16, gap: 6 },
-  barTrack: {
-    height: 8,
-    backgroundColor: "#eee",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  barFill: { height: "100%", backgroundColor: "#2ecc71", borderRadius: 4 },
-  barLabel: { fontSize: 12, color: "#888" },
+
   infoSection: {
     backgroundColor: "#fff",
     borderRadius: 14,

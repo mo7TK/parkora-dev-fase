@@ -1,6 +1,7 @@
 // src/pages/admin/ClientsList.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { adminApi, type Client } from "../../api/adminApi";
 import { PageLoader, ErrorBanner, Modal } from "./ParkingsList";
@@ -56,12 +57,15 @@ export default function ClientsList() {
             {clients.length} compte{clients.length !== 1 ? "s" : ""} app mobile
           </p>
         </div>
-        <input
-          style={s.searchInput}
-          placeholder="Rechercher par nom ou email…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div style={s.searchWrap}>
+          <Search size={15} color="#94a3b8" />
+          <input
+            style={s.searchInput}
+            placeholder="Rechercher par nom ou email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {error && <ErrorBanner msg={error} onClose={() => setError("")} />}
@@ -94,7 +98,6 @@ export default function ClientsList() {
                 <tr key={c.id} style={s.tr}>
                   <td style={s.td}>
                     <div style={s.userCell}>
-                      <span style={{ fontSize: "22px" }}>{c.avatar}</span>
                       <div>
                         <div style={s.userName}>
                           {c.first_name} {c.last_name}
@@ -151,16 +154,24 @@ const s: Record<string, React.CSSProperties> = {
   },
   pageTitle: { fontSize: "22px", fontWeight: 700, color: "#1a1a2e" },
   pageSub: { fontSize: "13px", color: "#94a3b8", marginTop: "3px" },
-  searchInput: {
+  searchWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
     background: "#fff",
     border: "1.5px solid #e2e8f0",
     borderRadius: "10px",
     padding: "10px 16px",
+    width: "260px",
+  },
+  searchInput: {
+    border: "none",
+    outline: "none",
+    background: "transparent",
     color: "#1a1a2e",
     fontSize: "14px",
     fontFamily: "inherit",
-    outline: "none",
-    width: "260px",
+    width: "100%",
   },
   emptyState: {
     display: "flex",
