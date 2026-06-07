@@ -48,7 +48,6 @@ export default function TabsLayout() {
           title: "Réservations",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            // ← icône car-clock remplace shield-car
             <MaterialCommunityIcons
               name="car-clock"
               color={color}

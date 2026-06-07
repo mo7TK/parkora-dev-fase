@@ -1,11 +1,7 @@
 /**
  * app/(parking)/minimap.tsx
- * ───────────────────────────
- * Minimap temps-réel.
- *
- * Changement Phase 6 :
- *   Le statut "reserved" (broadcasted par le backend quand le client est absent
- *   pendant une réservation active) affiche le dot en orange avec 🔒.
+ * FIX : arrière-plan blanc, image 100% largeur, resizeMode="contain"
+ * cohérent avec reservation-spot.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -31,6 +27,7 @@ import { useLocalSearchParams } from "expo-router";
 
 import { BACKEND_URL, WS_BASE_URL } from "@/src/constants/config";
 import { SPOT_CONFIGS } from "@/src/constants/spotPositions";
+import { useMapDimensions, dotPosition } from "@/src/hooks/useMapDimensions";
 
 type SpotStatus = "free" | "occupied" | "reserved";
 type Spot = { id: number; status: SpotStatus };
@@ -40,11 +37,10 @@ const DOT_SIZE = 28;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-// ── Color & icon per status ───────────────────────────────────────────────────
 const STATUS_COLOR: Record<SpotStatus, string> = {
   free: "#2ecc71",
   occupied: "#e74c3c",
-  reserved: "#f97316", // orange
+  reserved: "#f97316",
 };
 
 export default function MiniMap() {
@@ -59,11 +55,7 @@ export default function MiniMap() {
       : null;
 
   const lotConfig = lotId ? SPOT_CONFIGS[lotId] : null;
-
-  const imageDisplayWidth = SCREEN_WIDTH;
-  const imageDisplayHeight = lotConfig
-    ? (lotConfig.imageHeight / lotConfig.imageWidth) * imageDisplayWidth
-    : SCREEN_HEIGHT;
+  const { imageDisplayWidth, imageDisplayHeight } = useMapDimensions(lotConfig);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [connStatus, setStatus] = useState<ConnStatus>("connecting");
@@ -138,7 +130,11 @@ export default function MiniMap() {
     connected: "#2ecc71",
     disconnected: "#e74c3c",
   }[connStatus];
-
+  const statusLabel = {
+    connecting: "Connexion…",
+    connected: "Connecté",
+    disconnected: "Déconnecté",
+  }[connStatus];
   const freeCount = spots.filter((s) => s.status === "free").length;
   const occupiedCount = spots.filter((s) => s.status === "occupied").length;
   const reservedCount = spots.filter((s) => s.status === "reserved").length;
@@ -156,28 +152,37 @@ export default function MiniMap() {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* ── Map ──────────────────────────────────────────────────────────── */}
+      {/* ── Zone carte — fond blanc, pleine largeur ───────────────────────── */}
       <View style={styles.mapClip}>
         <GestureDetector gesture={composed}>
           <Animated.View
             style={[
-              { width: imageDisplayWidth, height: imageDisplayHeight },
+              {
+                width: imageDisplayWidth,
+                height: imageDisplayHeight,
+                backgroundColor: "#fff", // fond blanc derrière l'image
+              },
               animStyle,
             ]}
           >
             <Image
               source={{ uri: mapImageUri }}
               style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
-              resizeMode="cover"
+              resizeMode="stretch"
             />
 
+            {/* Dots */}
             {spots.map((spot) => {
               const pos = lotConfig.positions[spot.id];
               if (!pos) return null;
-              const left = (pos.x / 100) * imageDisplayWidth - DOT_SIZE / 2;
-              const top = (pos.y / 100) * imageDisplayHeight - DOT_SIZE / 2;
+              const { left, top } = dotPosition(
+                pos.x,
+                pos.y,
+                imageDisplayWidth,
+                imageDisplayHeight,
+                DOT_SIZE,
+              );
               const color = STATUS_COLOR[spot.status] ?? STATUS_COLOR.free;
-
               return (
                 <View
                   key={spot.id}
@@ -202,9 +207,8 @@ export default function MiniMap() {
       <View style={styles.topOverlay}>
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={styles.statusText}>{connStatus}</Text>
+          <Text style={styles.statusText}>{statusLabel}</Text>
         </View>
-
         {spots.length > 0 && (
           <>
             <View style={styles.separator} />
@@ -220,7 +224,7 @@ export default function MiniMap() {
         )}
       </View>
 
-      {/* ── Waiting ──────────────────────────────────────────────────────── */}
+      {/* ── Attente ──────────────────────────────────────────────────────── */}
       {spots.length === 0 && (
         <View style={styles.waiting}>
           <Text style={styles.waitingText}>
@@ -229,16 +233,7 @@ export default function MiniMap() {
         </View>
       )}
 
-      {/* ── Legend (shown when there are reserved spots) ─────────────────── */}
-      {reservedCount > 0 && (
-        <View style={styles.reservedLegend}>
-          <Text style={styles.reservedLegendText}>
-            🔒 Place réservée — client absent
-          </Text>
-        </View>
-      )}
-
-      {/* ── Reset button ─────────────────────────────────────────────────── */}
+      {/* ── Reset ────────────────────────────────────────────────────────── */}
       <TouchableOpacity style={styles.resetButton} onPress={resetView}>
         <Text style={styles.resetButtonText}>⊙ Réinitialiser</Text>
       </TouchableOpacity>
@@ -256,9 +251,16 @@ function SummaryItem({ color, label }: { color: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  // fond blanc sur tout l'écran
+  container: { flex: 1, backgroundColor: "#fff" },
 
-  mapClip: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT, overflow: "hidden" },
+  // clip pleine largeur + hauteur écran, overflow hidden pour le zoom
+  mapClip: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
 
   spotDot: {
     position: "absolute",
@@ -280,32 +282,27 @@ const styles = StyleSheet.create({
 
   topOverlay: {
     position: "absolute",
-    top: 30,
+    top: 20,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    backgroundColor: "rgba(0,0,0,0.50)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 7,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 16,
   },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  statusText: {
-    fontSize: 13,
-    color: "#fff",
-    textTransform: "capitalize",
-    fontWeight: "500",
-  },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  statusDot: { width: 7, height: 7, borderRadius: 3.5 },
+  statusText: { fontSize: 11, color: "#fff", fontWeight: "500" },
   separator: {
     width: 1,
-    height: 16,
+    height: 12,
     backgroundColor: "rgba(255,255,255,0.35)",
   },
-  summaryItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  summaryDot: { width: 10, height: 10, borderRadius: 3 },
-  summaryText: { fontSize: 13, color: "#fff", fontWeight: "500" },
+  summaryItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  summaryDot: { width: 7, height: 7, borderRadius: 2 },
+  summaryText: { fontSize: 11, color: "#fff", fontWeight: "500" },
 
   reservedLegend: {
     position: "absolute",

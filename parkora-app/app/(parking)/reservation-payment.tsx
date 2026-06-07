@@ -1,14 +1,12 @@
 /**
  * app/(parking)/reservation-payment.tsx
- * ────────────────────────────────────────
- * Partie 3 du tunnel de réservation.
- * Résumé + méthode de paiement CIB + confirmation.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -17,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "@/src/context/AuthContext";
@@ -63,6 +61,10 @@ export default function ReservationPayment() {
   const [paying, setPaying] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Refs pour focus automatique
+  const expiryRef = useRef<TextInput>(null);
+  const cvcRef = useRef<TextInput>(null);
+
   const cardValid =
     cardNumber.replace(/\s/g, "").length === 16 &&
     expiry.length === 5 &&
@@ -80,7 +82,6 @@ export default function ReservationPayment() {
       Alert.alert("Non connecté", "Vous devez être connecté pour réserver.");
       return;
     }
-
     setPaying(true);
     try {
       const res = await fetch(`${BACKEND_URL}/reservations/`, {
@@ -99,9 +100,7 @@ export default function ReservationPayment() {
           payment_method: "cib",
         }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         Alert.alert(
           "Réservation échouée",
@@ -109,7 +108,6 @@ export default function ReservationPayment() {
         );
         return;
       }
-
       setSuccess(true);
     } catch {
       Alert.alert("Erreur réseau", "Impossible de contacter le serveur.");
@@ -122,11 +120,13 @@ export default function ReservationPayment() {
     setSuccess(false);
     router.replace("/(tabs)");
   }
-
   function goToHistory() {
     setSuccess(false);
     router.replace("/(tabs)/reservation");
   }
+
+  // Étoiles CVC pour la carte animée
+  const cvcStars = cvc.length > 0 ? "•".repeat(cvc.length) : "•••";
 
   return (
     <ScrollView
@@ -140,7 +140,7 @@ export default function ReservationPayment() {
         <Text style={s.headerSub}>Confirmez votre réservation</Text>
       </View>
 
-      {/* ── Résumé de la réservation ──────────────────────────────────────── */}
+      {/* ── Résumé ───────────────────────────────────────────────────────────── */}
       <View style={s.card}>
         <View style={s.cardHeader}>
           <Ionicons name="receipt-outline" size={16} color="#1a73e8" />
@@ -160,7 +160,6 @@ export default function ReservationPayment() {
             value={`${startTime} → ${endTime}`}
           />
           <SummaryRow icon="hourglass-outline" label="Durée" value={duration} />
-
           <View style={s.priceRow}>
             <Text style={s.priceLabel}>Total à payer</Text>
             <Text style={s.priceValue}>{totalPrice} DA</Text>
@@ -168,21 +167,20 @@ export default function ReservationPayment() {
         </View>
       </View>
 
-      {/* ── Méthode de paiement ────────────────────────────────────────────── */}
+      {/* ── Carte CIB ────────────────────────────────────────────────────────── */}
       <View style={s.card}>
         <View style={s.cardHeader}>
           <Ionicons name="card-outline" size={16} color="#1a73e8" />
           <Text style={s.cardTitle}>Carte CIB</Text>
         </View>
         <View style={s.cardBody}>
-          {/* Visual card */}
+          {/* Visuel carte */}
           <View style={s.cibCard}>
             <View style={s.cibCardTop}>
               <Text style={s.cibLabel}>CIB</Text>
-              <MaterialCommunityIcons
-                name="chip"
-                size={28}
-                color="rgba(255,255,255,0.7)"
+              <Image
+                source={require("../../assets/images/cib_logo.png")}
+                style={{ width: 40, height: 40, resizeMode: "contain" }}
               />
             </View>
             <Text style={s.cibNumber}>
@@ -195,55 +193,79 @@ export default function ReservationPayment() {
               </View>
               <View>
                 <Text style={s.cibFieldLabel}>CVC</Text>
-                <Text style={s.cibFieldValue}>{cvc ? "•••" : "•••"}</Text>
+                {/* Étoiles dynamiques quand l'utilisateur tape */}
+                <Text style={s.cibFieldValue}>{cvcStars}</Text>
               </View>
             </View>
           </View>
 
-          {/* Inputs */}
+          {/* Numéro de carte */}
           <Text style={s.inputLabel}>Numéro de carte</Text>
           <TextInput
             style={s.input}
             value={cardNumber}
-            onChangeText={(t) => setCardNumber(formatCardNumber(t))}
+            onChangeText={(t) => {
+              const formatted = formatCardNumber(t);
+              setCardNumber(formatted);
+              // Auto-focus sur expiry quand 16 chiffres atteints
+              if (formatted.replace(/\s/g, "").length === 16) {
+                expiryRef.current?.focus();
+              }
+            }}
             placeholder="1234 5678 9012 3456"
             placeholderTextColor="#c8cdd8"
             keyboardType="numeric"
             maxLength={19}
+            returnKeyType="next"
+            onSubmitEditing={() => expiryRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <View style={s.inputRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.inputLabel}>Date d'expiration</Text>
               <TextInput
+                ref={expiryRef}
                 style={s.input}
                 value={expiry}
-                onChangeText={(t) => setExpiry(formatExpiry(t))}
+                onChangeText={(t) => {
+                  const formatted = formatExpiry(t);
+                  setExpiry(formatted);
+                  // Auto-focus sur CVC quand MM/AA complet
+                  if (formatted.length === 5) {
+                    cvcRef.current?.focus();
+                  }
+                }}
                 placeholder="MM/AA"
                 placeholderTextColor="#c8cdd8"
                 keyboardType="numeric"
                 maxLength={5}
+                returnKeyType="next"
+                onSubmitEditing={() => cvcRef.current?.focus()}
+                blurOnSubmit={false}
               />
             </View>
             <View style={{ width: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={s.inputLabel}>CVC</Text>
               <TextInput
+                ref={cvcRef}
                 style={s.input}
                 value={cvc}
                 onChangeText={(t) => setCvc(t.replace(/\D/g, "").slice(0, 3))}
-                placeholder="123"
+                placeholder="•••"
                 placeholderTextColor="#c8cdd8"
                 keyboardType="numeric"
                 maxLength={3}
                 secureTextEntry
+                returnKeyType="done"
               />
             </View>
           </View>
         </View>
       </View>
 
-      {/* ── Pay button ─────────────────────────────────────────────────────── */}
+      {/* ── Bouton payer — sans cadre/ombre excessifs ─────────────────────────── */}
       <TouchableOpacity
         style={[s.btn, (!cardValid || paying) && s.btnOff]}
         onPress={handlePay}
@@ -253,17 +275,12 @@ export default function ReservationPayment() {
           <ActivityIndicator color="#fff" />
         ) : (
           <>
-            <Ionicons name="lock-closed" size={18} color="#fff" />
             <Text style={s.btnText}> Payer et réserver · {totalPrice} DA</Text>
           </>
         )}
       </TouchableOpacity>
 
-      <Text style={s.secureNote}>
-        🔒 Paiement sécurisé — vos données sont chiffrées
-      </Text>
-
-      {/* ── Success Modal ────────────────────────────────────────────────────── */}
+      {/* ── Modal succès ──────────────────────────────────────────────────────── */}
       <Modal visible={success} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
@@ -275,13 +292,11 @@ export default function ReservationPayment() {
               Votre place N°{spotId} au {name} est réservée de {startTime} à{" "}
               {endTime} le {date}.
             </Text>
-
             <View style={s.modalDetails}>
               <ModalDetail label="Place" value={`N°${spotId}`} />
               <ModalDetail label="Durée" value={duration} />
               <ModalDetail label="Montant" value={`${totalPrice} DA`} />
             </View>
-
             <TouchableOpacity style={s.modalBtnPrimary} onPress={goToHistory}>
               <Text style={s.modalBtnTextPrimary}>Voir mes réservations</Text>
             </TouchableOpacity>
@@ -391,7 +406,7 @@ const s = StyleSheet.create({
   priceLabel: { fontSize: 15, fontWeight: "700", color: "#1a1a2e" },
   priceValue: { fontSize: 22, fontWeight: "900", color: "#7c3aed" },
 
-  // CIB card visual
+  // Carte CIB
   cibCard: {
     backgroundColor: "#1a2d5a",
     borderRadius: 16,
@@ -452,6 +467,7 @@ const s = StyleSheet.create({
   },
   inputRow: { flexDirection: "row", alignItems: "flex-start" },
 
+  // Bouton payer — flat, sans élévation excessive
   btn: {
     flexDirection: "row",
     backgroundColor: "#7c3aed",
@@ -461,23 +477,11 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 16,
     marginTop: 24,
-    shadowColor: "#7c3aed",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   btnOff: { backgroundColor: "#c4b5fd" },
   btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
 
-  secureNote: {
-    textAlign: "center",
-    fontSize: 12,
-    color: "#94a3b8",
-    marginTop: 12,
-  },
-
-  // Success modal
+  // Modal succès
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -506,7 +510,6 @@ const s = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 20,
   },
-
   modalDetails: {
     width: "100%",
     backgroundColor: "#f8fafc",
@@ -518,7 +521,6 @@ const s = StyleSheet.create({
   modalDetailRow: { flexDirection: "row", justifyContent: "space-between" },
   modalDetailLabel: { fontSize: 13, color: "#64748b" },
   modalDetailValue: { fontSize: 13, fontWeight: "700", color: "#1a1a2e" },
-
   modalBtnPrimary: {
     backgroundColor: "#7c3aed",
     borderRadius: 14,

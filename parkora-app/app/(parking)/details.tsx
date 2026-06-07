@@ -304,7 +304,8 @@ export default function Details() {
       </TouchableOpacity>
 
       <TouchableOpacity style={s.buttonLayout} onPress={handleViewLayout}>
-        <Text style={s.buttonTextDark}>Voir le plan du parking</Text>
+        <Ionicons name="car-outline" size={22} color="#2563EB" />
+        <Text style={s.buttonLayoutText}>Disponibilité en temps réel</Text>
       </TouchableOpacity>
 
       {isPaid && isOpen && (
@@ -492,14 +493,26 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   buttonLayout: {
-    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+
+    backgroundColor: "#EFF6FF",
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: "center",
+
     marginHorizontal: 16,
     marginBottom: 12,
+
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#BFDBFE",
+  },
+
+  buttonLayoutText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2563EB",
   },
   buttonReserve: {
     flexDirection: "row",

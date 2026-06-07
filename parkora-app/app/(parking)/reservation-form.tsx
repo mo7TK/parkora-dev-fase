@@ -1,19 +1,15 @@
 /**
  * app/(parking)/reservation-form.tsx
- * ─────────────────────────────────────
  * ÉTAPE 1 du tunnel de réservation.
  *
- * Nouveau flux :
- *   Détails → [reservation-form] → reservation-spot → reservation-payment
- *
- * L'utilisateur choisit ici la date et le créneau horaire.
- * On passe ensuite à reservation-spot qui filtrera les emplacements
- * déjà réservés sur CE créneau précis.
- * Il n'y a PAS de vérification de disponibilité ici — c'est fait dans
- * reservation-spot (on montre visuellement les places prises).
+ * Fix : empêcher la saisie d'une heure dans le passé.
+ *   - Si le jour sélectionné = aujourd'hui, les créneaux de début
+ *     antérieurs à l'heure actuelle sont désactivés (grisés + non cliquables).
+ *   - L'heure de début par défaut est le prochain créneau disponible.
+ *   - Quand on change de jour vers aujourd'hui, on revalide startTime.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -25,7 +21,38 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 
-// ── Time slots (every 30 minutes) ─────────────────────────────────────────────
+// ── Helpers temps ─────────────────────────────────────────────────────────────
+
+/** Retourne "HH:MM" de l'heure actuelle arrondie au prochain demi-heure */
+function nextHalfHour(): string {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  if (m < 30) return `${String(h).padStart(2, "0")}:30`;
+  const nextH = h + 1;
+  if (nextH >= 24) return "23:30"; // bord de journée
+  return `${String(nextH).padStart(2, "0")}:00`;
+}
+
+/** "HH:MM" → minutes depuis minuit */
+function toMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Retourne true si le créneau est dans le passé pour aujourd'hui */
+function isPastSlot(
+  slot: string,
+  todayStr: string,
+  selectedDay: string,
+): boolean {
+  if (selectedDay !== todayStr) return false;
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  return toMinutes(slot) <= currentMins;
+}
+
+// ── Time slots (every 30 min) ─────────────────────────────────────────────────
 const TIME_SLOTS: string[] = [];
 for (let h = 0; h < 24; h++) {
   TIME_SLOTS.push(`${String(h).padStart(2, "0")}:00`);
@@ -66,9 +93,7 @@ function getNext14Days(): { label: string; value: string }[] {
 }
 
 function durationLabel(start: string, end: string): string {
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  const total = eh * 60 + em - (sh * 60 + sm);
+  const total = toMinutes(end) - toMinutes(start);
   if (total <= 0) return "—";
   const h = Math.floor(total / 60),
     m = total % 60;
@@ -80,12 +105,12 @@ function durationLabel(start: string, end: string): string {
 }
 
 function estimatedPrice(start: string, end: string, pph: number): number {
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  const total = eh * 60 + em - (sh * 60 + sm);
+  const total = toMinutes(end) - toMinutes(start);
   if (total <= 0) return 0;
   return Math.round((total / 60) * pph);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ReservationForm() {
   const { lotId, name, minimapImage, pricePerHour } = useLocalSearchParams<{
@@ -97,22 +122,48 @@ export default function ReservationForm() {
 
   const price = Number(pricePerHour ?? 0);
   const DAYS = getNext14Days();
+  const todayStr = DAYS[0].value;
+
+  // Créneau de départ par défaut = prochain demi-heure si aujourd'hui
+  const defaultStart = nextHalfHour();
+  const defaultEnd = (() => {
+    const mins = toMinutes(defaultStart) + 60;
+    if (mins >= 24 * 60) return "23:30";
+    const h = Math.floor(mins / 60),
+      m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  })();
 
   const [selectedDay, setSelectedDay] = useState(DAYS[0].value);
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("09:00");
+  const [startTime, setStartTime] = useState(defaultStart);
+  const [endTime, setEndTime] = useState(defaultEnd);
   const [showStartPick, setShowStartPick] = useState(false);
   const [showEndPick, setShowEndPick] = useState(false);
 
+  // Quand on change de jour, revalider startTime si on revient sur aujourd'hui
+  useEffect(() => {
+    if (
+      selectedDay === todayStr &&
+      isPastSlot(startTime, todayStr, selectedDay)
+    ) {
+      const next = nextHalfHour();
+      setStartTime(next);
+      // Ajuster endTime si nécessaire
+      const endMins = toMinutes(next) + 60;
+      if (endMins < 24 * 60) {
+        const h = Math.floor(endMins / 60),
+          m = endMins % 60;
+        setEndTime(
+          `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+        );
+      }
+    }
+  }, [selectedDay]);
+
   const duration = durationLabel(startTime, endTime);
   const estPrice = estimatedPrice(startTime, endTime, price);
-  const isValid = (() => {
-    const [sh, sm] = startTime.split(":").map(Number);
-    const [eh, em] = endTime.split(":").map(Number);
-    return eh * 60 + em > sh * 60 + sm;
-  })();
+  const isValid = toMinutes(endTime) > toMinutes(startTime);
 
-  // ── Continuer → on passe à la sélection de place avec le créneau ──────────
   function handleContinue() {
     if (!isValid) {
       Alert.alert(
@@ -128,7 +179,6 @@ export default function ReservationForm() {
         name,
         minimapImage,
         pricePerHour,
-        // On passe le créneau choisi pour filtrer les places déjà réservées
         date: selectedDay,
         startTime,
         endTime,
@@ -137,6 +187,16 @@ export default function ReservationForm() {
       },
     });
   }
+
+  // Créneaux de début filtrés (on retire les passés si aujourd'hui)
+  const availableStartSlots = TIME_SLOTS.filter(
+    (t) => !isPastSlot(t, todayStr, selectedDay),
+  );
+
+  // Créneaux de fin : uniquement après le startTime
+  const availableEndSlots = TIME_SLOTS.filter(
+    (t) => toMinutes(t) > toMinutes(startTime),
+  );
 
   return (
     <ScrollView
@@ -150,7 +210,7 @@ export default function ReservationForm() {
         <Text style={s.headerSub}>{name}</Text>
       </View>
 
-      {/* Étapes visuelles */}
+      {/* Étapes */}
       <View style={s.stepsRow}>
         <StepBadge num={1} label="Date & heure" active />
         <View style={s.stepLine} />
@@ -159,7 +219,7 @@ export default function ReservationForm() {
         <StepBadge num={3} label="Paiement" active={false} />
       </View>
 
-      {/* Section : date */}
+      {/* Date */}
       <SectionCard icon="calendar-outline" title="Date">
         <ScrollView
           horizontal
@@ -185,7 +245,7 @@ export default function ReservationForm() {
         </ScrollView>
       </SectionCard>
 
-      {/* Section : horaires */}
+      {/* Horaires */}
       <SectionCard icon="time-outline" title="Horaires">
         <View style={s.timeRow}>
           {/* Début */}
@@ -203,28 +263,46 @@ export default function ReservationForm() {
             </TouchableOpacity>
             {showStartPick && (
               <ScrollView style={s.timeDropdown} nestedScrollEnabled>
-                {TIME_SLOTS.map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[
-                      s.timeOption,
-                      t === startTime && s.timeOptionActive,
-                    ]}
-                    onPress={() => {
-                      setStartTime(t);
-                      setShowStartPick(false);
-                    }}
-                  >
-                    <Text
+                {TIME_SLOTS.map((t) => {
+                  const past = isPastSlot(t, todayStr, selectedDay);
+                  return (
+                    <TouchableOpacity
+                      key={t}
                       style={[
-                        s.timeOptionText,
-                        t === startTime && s.timeOptionTextActive,
+                        s.timeOption,
+                        t === startTime && s.timeOptionActive,
+                        past && s.timeOptionDisabled,
                       ]}
+                      onPress={() => {
+                        if (past) return;
+                        setStartTime(t);
+                        // Si endTime <= nouveau startTime, avancer endTime
+                        if (toMinutes(endTime) <= toMinutes(t)) {
+                          const newEnd = toMinutes(t) + 60;
+                          if (newEnd < 24 * 60) {
+                            const h = Math.floor(newEnd / 60),
+                              m = newEnd % 60;
+                            setEndTime(
+                              `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+                            );
+                          }
+                        }
+                        setShowStartPick(false);
+                      }}
+                      disabled={past}
                     >
-                      {t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          s.timeOptionText,
+                          t === startTime && s.timeOptionTextActive,
+                          past && s.timeOptionTextDisabled,
+                        ]}
+                      >
+                        {t}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
           </View>
@@ -251,32 +329,52 @@ export default function ReservationForm() {
             </TouchableOpacity>
             {showEndPick && (
               <ScrollView style={s.timeDropdown} nestedScrollEnabled>
-                {TIME_SLOTS.map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[s.timeOption, t === endTime && s.timeOptionActive]}
-                    onPress={() => {
-                      setEndTime(t);
-                      setShowEndPick(false);
-                    }}
-                  >
-                    <Text
+                {TIME_SLOTS.map((t) => {
+                  const beforeStart = toMinutes(t) <= toMinutes(startTime);
+                  return (
+                    <TouchableOpacity
+                      key={t}
                       style={[
-                        s.timeOptionText,
-                        t === endTime && s.timeOptionTextActive,
+                        s.timeOption,
+                        t === endTime && s.timeOptionActive,
+                        beforeStart && s.timeOptionDisabled,
                       ]}
+                      onPress={() => {
+                        if (beforeStart) return;
+                        setEndTime(t);
+                        setShowEndPick(false);
+                      }}
+                      disabled={beforeStart}
                     >
-                      {t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          s.timeOptionText,
+                          t === endTime && s.timeOptionTextActive,
+                          beforeStart && s.timeOptionTextDisabled,
+                        ]}
+                      >
+                        {t}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
           </View>
         </View>
+
+        {/* Avertissement si aujourd'hui et pas de créneaux disponibles */}
+        {selectedDay === todayStr && availableStartSlots.length === 0 && (
+          <View style={s.warnBox}>
+            <Ionicons name="time-outline" size={14} color="#f97316" />
+            <Text style={s.warnText}>
+              Plus de créneaux disponibles aujourd'hui.
+            </Text>
+          </View>
+        )}
       </SectionCard>
 
-      {/* Section : résumé estimé */}
+      {/* Résumé */}
       <SectionCard icon="receipt-outline" title="Résumé estimé">
         <View style={s.summaryGrid}>
           <SummaryRow label="Date" value={selectedDay} />
@@ -390,7 +488,6 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 26, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "rgba(255,255,255,0.75)", marginTop: 4 },
 
-  // Steps
   stepsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -476,8 +573,23 @@ const s = StyleSheet.create({
   },
   timeOption: { paddingVertical: 10, paddingHorizontal: 14 },
   timeOptionActive: { backgroundColor: "#ede9fe" },
+  timeOptionDisabled: { opacity: 0.35 },
   timeOptionText: { fontSize: 14, color: "#1a1a2e" },
   timeOptionTextActive: { color: "#7c3aed", fontWeight: "700" },
+  timeOptionTextDisabled: { color: "#94a3b8" },
+
+  warnBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fff7ed",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#fed7aa",
+  },
+  warnText: { fontSize: 12, color: "#c2410c", flex: 1 },
 
   summaryGrid: { gap: 10 },
   summaryRow: {
@@ -509,11 +621,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 16,
     marginTop: 16,
-    shadowColor: "#7c3aed",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   btnOff: { backgroundColor: "#c4b5fd" },
   btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },

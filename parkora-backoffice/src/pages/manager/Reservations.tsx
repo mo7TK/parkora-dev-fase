@@ -17,6 +17,12 @@ const STATUS_CFG: Record<
     color: "#1a73e8",
     border: "#bfdbfe",
   },
+  ongoing: {
+    label: "En cours",
+    bg: "#ede9fe",
+    color: "#7c3aed",
+    border: "#c4b5fd",
+  },
   cancelled: {
     label: "Annulée",
     bg: "#f0f4f8",
@@ -30,6 +36,24 @@ const STATUS_CFG: Record<
     border: "#bbf7d0",
   },
 };
+
+// ── Calcule si une réservation "confirmed" est actuellement en cours ──────────
+function getDisplayStatus(r: Reservation): string {
+  if (r.status !== "confirmed") return r.status;
+
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+  if (r.date !== todayStr) return "confirmed";
+
+  const [sh, sm] = r.start_time.split(":").map(Number);
+  const [eh, em] = r.end_time.split(":").map(Number);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+
+  if (nowMin >= startMin && nowMin < endMin) return "ongoing";
+  return "confirmed";
+}
 
 function formatDuration(mins: number) {
   if (!mins) return "—";
@@ -55,8 +79,6 @@ export default function Reservations() {
   const [cancelling, setCancelling] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
 
-  // Keep a ref to the latest fetch parameters so the async callback can use
-  // them without being listed as a dependency (avoids stale closure issues).
   const fetchRef = useRef({ token, tab, status, date });
   useEffect(() => {
     fetchRef.current = { token, tab, status, date };
@@ -90,10 +112,8 @@ export default function Reservations() {
         setError(e instanceof Error ? e.message : "Erreur"),
       )
       .finally(() => setLoading(false));
-  }, []); // stable — uses ref internally
+  }, []);
 
-  // Re-fetch whenever the filter params change.
-  // fetchData itself is stable, so we explicitly list the real dependencies.
   useEffect(() => {
     fetchData();
   }, [fetchData, token, tab, status, date]);
@@ -227,7 +247,8 @@ export default function Reservations() {
             </thead>
             <tbody>
               {items.map((r) => {
-                const cfg = STATUS_CFG[r.status] ?? STATUS_CFG.completed;
+                const displayStatus = getDisplayStatus(r);
+                const cfg = STATUS_CFG[displayStatus] ?? STATUS_CFG.completed;
                 return (
                   <tr key={r.id} style={s.tr}>
                     <td style={s.td}>

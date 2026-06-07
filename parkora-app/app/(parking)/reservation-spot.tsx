@@ -1,12 +1,15 @@
 /**
  * app/(parking)/reservation-spot.tsx
  * ÉTAPE 2 du tunnel de réservation.
+ *
+ * FIX cohérence dots :
+ *   - utilise useMapDimensions + dotPosition (hook partagé)
+ *   - resizeMode="contain" (identique à minimap)
  */
 
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   ScrollView,
   StyleSheet,
@@ -25,13 +28,13 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { router, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BACKEND_URL } from "@/src/constants/config";
 import { SPOT_CONFIGS } from "@/src/constants/spotPositions";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useMapDimensions, dotPosition } from "@/src/hooks/useMapDimensions";
 
 const DOT_SIZE = 30;
-const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function ReservationSpot() {
   const {
@@ -57,12 +60,8 @@ export default function ReservationSpot() {
   }>();
 
   const insets = useSafeAreaInsets();
-
   const lotConfig = lotId ? SPOT_CONFIGS[lotId] : null;
-  const imageDisplayWidth = SCREEN_WIDTH;
-  const imageDisplayHeight = lotConfig
-    ? (lotConfig.imageHeight / lotConfig.imageWidth) * imageDisplayWidth
-    : 800;
+  const { imageDisplayWidth, imageDisplayHeight } = useMapDimensions(lotConfig);
 
   const mapImageUri =
     lotId && minimapImage
@@ -163,7 +162,7 @@ export default function ReservationSpot() {
 
   return (
     <GestureHandlerRootView style={st.container}>
-      {/* ── Zone carte ───────────────────────────────────────────────────── */}
+      {/* ── Carte ──────────────────────────────────────────────────────────── */}
       <ScrollView
         style={st.scrollArea}
         contentContainerStyle={st.scrollContent}
@@ -177,10 +176,11 @@ export default function ReservationSpot() {
               mapStyle,
             ]}
           >
+            {/* resizeMode="contain" — identique à minimap */}
             <Image
               source={{ uri: mapImageUri }}
               style={{ width: imageDisplayWidth, height: imageDisplayHeight }}
-              resizeMode="contain"
+              resizeMode="stretch"
             />
 
             {loading && (
@@ -196,8 +196,15 @@ export default function ReservationSpot() {
                   const pos = lotConfig.positions[spotId];
                   if (!pos) return null;
 
-                  const left = (pos.x / 100) * imageDisplayWidth - DOT_SIZE / 2;
-                  const top = (pos.y / 100) * imageDisplayHeight - DOT_SIZE / 2;
+                  // Même calcul que minimap via dotPosition()
+                  const { left, top } = dotPosition(
+                    pos.x,
+                    pos.y,
+                    imageDisplayWidth,
+                    imageDisplayHeight,
+                    DOT_SIZE,
+                  );
+
                   const isTaken = takenSpots.includes(spotId);
                   const isSelected = selectedSpot === spotId;
 
@@ -244,7 +251,7 @@ export default function ReservationSpot() {
         </GestureDetector>
       </ScrollView>
 
-      {/* ── Info pill flottante (remplace la barre violette) ─────────────── */}
+      {/* ── Info pill ──────────────────────────────────────────────────────── */}
       {!loading && (
         <View style={st.infoPill}>
           <Text style={st.infoPillText}>
@@ -253,7 +260,7 @@ export default function ReservationSpot() {
         </View>
       )}
 
-      {/* ── Étapes + Légende ─────────────────────────────────────────────── */}
+      {/* ── Étapes + légende ───────────────────────────────────────────────── */}
       <View style={st.midBar}>
         <View style={st.stepsRow}>
           <MiniStep num={1} label="Créneau" done />
@@ -269,7 +276,7 @@ export default function ReservationSpot() {
         </View>
       </View>
 
-      {/* ── Barre du bas ─────────────────────────────────────────────────── */}
+      {/* ── Barre du bas ───────────────────────────────────────────────────── */}
       <View style={[st.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
         {selectedSpot ? (
           <>
@@ -295,8 +302,6 @@ export default function ReservationSpot() {
     </GestureHandlerRootView>
   );
 }
-
-// ── Sub-components ────────────────────────────────────────────────────────────
 
 function MiniStep({
   num,
@@ -363,17 +368,11 @@ function LegendItem({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f0f4f8" },
-
   scrollArea: { flex: 1 },
   scrollContent: { flexGrow: 1 },
-
-  // Fond blanc derrière le PNG
   mapWrapper: { backgroundColor: "#ffffff" },
-
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.85)",
@@ -382,7 +381,6 @@ const st = StyleSheet.create({
     gap: 12,
   },
   loadingText: { color: "#7c3aed", fontSize: 13, fontWeight: "600" },
-
   dot: {
     position: "absolute",
     width: DOT_SIZE,
@@ -400,8 +398,6 @@ const st = StyleSheet.create({
   dotText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   dotCheck: { color: "#fff", fontSize: 14, fontWeight: "900" },
   dotLock: { fontSize: 11 },
-
-  // Pill flottante (remplace la barre violette)
   infoPill: {
     position: "absolute",
     top: 12,
@@ -412,7 +408,6 @@ const st = StyleSheet.create({
     borderRadius: 20,
   },
   infoPillText: { fontSize: 12, color: "#fff", fontWeight: "500" },
-
   midBar: {
     backgroundColor: "#fff",
     paddingVertical: 10,
@@ -429,7 +424,6 @@ const st = StyleSheet.create({
   },
   stepLine: { width: 28, height: 1, backgroundColor: "#e2e8f0" },
   legend: { flexDirection: "row", justifyContent: "center", gap: 16 },
-
   bottomBar: {
     backgroundColor: "#fff",
     flexDirection: "row",
@@ -462,7 +456,6 @@ const st = StyleSheet.create({
     color: "#94a3b8",
     fontWeight: "500",
   },
-
   errorContainer: {
     flex: 1,
     justifyContent: "center",

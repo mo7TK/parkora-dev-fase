@@ -361,7 +361,7 @@ export default function MapScreen() {
           <View style={s.noLocBanner}>
             <Ionicons name="warning-outline" size={14} color="#f97316" />
             <Text style={s.noLocText}>
-              Géolocalisation indisponible — tri par nom
+              on ne sait pas où vous êtes. Activez la localisation
             </Text>
           </View>
         )}
