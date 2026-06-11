@@ -5,23 +5,23 @@ import { useAuth } from "../../context/AuthContext";
 import { adminApi, type CreateParkingBody } from "../../api/adminApi";
 
 const DAYS = [
+  { key: "dim", label: "Dimanche" },
   { key: "lun", label: "Lundi" },
   { key: "mar", label: "Mardi" },
   { key: "mer", label: "Mercredi" },
   { key: "jeu", label: "Jeudi" },
   { key: "ven", label: "Vendredi" },
   { key: "sam", label: "Samedi" },
-  { key: "dim", label: "Dimanche" },
 ];
 
 const DEFAULT_SCHEDULE: Record<string, string> = {
+  dim: "08:00-20:00",
   lun: "08:00-20:00",
   mar: "08:00-20:00",
   mer: "08:00-20:00",
   jeu: "08:00-20:00",
-  ven: "08:00-18:00",
-  sam: "09:00-13:00",
-  dim: "Fermé",
+  ven: "Fermé",
+  sam: "Fermé",
 };
 
 type Errors = {

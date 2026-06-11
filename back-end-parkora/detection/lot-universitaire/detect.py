@@ -6,7 +6,7 @@ import requests
 from ultralytics import YOLO
 
 # ── Configuration ────────────────────────────────────────────────────────────
-VIDEO_PATH      = 2
+VIDEO_PATH      = 1
 SPOTS_FILE      = "spots.json"
 BACKEND_URL     = "http://127.0.0.1:8000/update-spots"
 SEND_EVERY      = 1.0    # seconds between each POST to the backend

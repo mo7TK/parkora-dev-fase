@@ -30,6 +30,10 @@ export interface UpdateParkingBody {
 export interface Reservation {
   id: string;
   user_id: string;
+  user_name: string;
+  user_plate: string;
+  user_phone: string;
+  user_email: string;
   lot_id: string;
   lot_name: string;
   spot_id: number;

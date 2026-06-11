@@ -5,13 +5,13 @@ import { useManagerParking } from "../../context/ManagerContext";
 import { managerApi, type UpdateParkingBody } from "../../api/managerApi";
 
 const DAYS = [
+  { key: "dim", label: "Dimanche" },
   { key: "lun", label: "Lundi" },
   { key: "mar", label: "Mardi" },
   { key: "mer", label: "Mercredi" },
   { key: "jeu", label: "Jeudi" },
   { key: "ven", label: "Vendredi" },
   { key: "sam", label: "Samedi" },
-  { key: "dim", label: "Dimanche" },
 ];
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -104,7 +104,6 @@ function PasswordSection() {
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
-      // Déconnecter après 2 s pour forcer une reconnexion avec le nouveau mot de passe
       setTimeout(() => logout(), 2000);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur lors du changement.");
@@ -116,7 +115,6 @@ function PasswordSection() {
   return (
     <Section title="Changer le mot de passe">
       <form onSubmit={handleSubmit} style={s.form}>
-        {/* Mot de passe actuel */}
         <Field label="Mot de passe actuel">
           <div style={s.pwField}>
             <input
@@ -144,7 +142,6 @@ function PasswordSection() {
           </div>
         </Field>
 
-        {/* Nouveau mot de passe */}
         <Field label="Nouveau mot de passe">
           <div style={s.pwField}>
             <input
@@ -170,11 +167,9 @@ function PasswordSection() {
               {showNew ? <IconEyeOff /> : <IconEye />}
             </button>
           </div>
-          {/* Barre de force */}
           {newPw.length > 0 && <StrengthBar password={newPw} />}
         </Field>
 
-        {/* Confirmation */}
         <Field label="Confirmer le nouveau mot de passe">
           <div
             style={{
@@ -204,7 +199,6 @@ function PasswordSection() {
           </div>
         </Field>
 
-        {/* Feedback */}
         {error && <div style={s.errorBox}>{error}</div>}
         {success && (
           <div style={s.successBox}>
@@ -383,7 +377,6 @@ export default function ParkingSettings() {
         </p>
       </div>
 
-      {/* Champs non modifiables */}
       <div style={s.readonlyCard}>
         <p style={s.readonlyTitle}>
           Informations non modifiables — contactez l'administrateur pour les
@@ -409,7 +402,6 @@ export default function ParkingSettings() {
       {error && <div style={s.errorBox}>{error}</div>}
 
       <form onSubmit={handleSave} style={s.form}>
-        {/* Statut */}
         <Section title="Statut d'ouverture">
           <div style={s.toggleGroup}>
             <ToggleBtn
@@ -427,7 +419,6 @@ export default function ParkingSettings() {
           </div>
         </Section>
 
-        {/* Prix */}
         {parking.type === "paid" && (
           <Section title="Tarification">
             <Field label="Prix par heure (DA)">
@@ -448,7 +439,6 @@ export default function ParkingSettings() {
           </Section>
         )}
 
-        {/* Adresse & Bio */}
         <Section title="Description & Localisation">
           <Field label="Adresse">
             <input
@@ -469,7 +459,6 @@ export default function ParkingSettings() {
           </Field>
         </Section>
 
-        {/* Horaires */}
         <Section title="Horaires d'ouverture">
           <div style={s.toggleGroup}>
             <ToggleBtn
@@ -517,7 +506,6 @@ export default function ParkingSettings() {
         </button>
       </form>
 
-      {/* ── Section mot de passe — séparée du formulaire principal ── */}
       <div style={s.divider} />
       <PasswordSection />
     </div>
@@ -764,7 +752,6 @@ const s: Record<string, React.CSSProperties> = {
     boxShadow: "0 4px 12px rgba(26,115,232,0.25)",
   },
   divider: { height: "1px", background: "#e2e8f0", margin: "4px 0" },
-  // Password section
   pwField: {
     display: "flex",
     alignItems: "center",

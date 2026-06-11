@@ -33,15 +33,19 @@ type ParkingLot = {
   opening_hours: string | Record<string, string>;
 };
 
+// Ordre algérien : semaine du dimanche au jeudi, weekend vendredi-samedi
 const DAY_LABELS: Record<string, string> = {
+  dim: "Dim",
   lun: "Lun",
   mar: "Mar",
   mer: "Mer",
   jeu: "Jeu",
   ven: "Ven",
   sam: "Sam",
-  dim: "Dim",
 };
+
+// Ordre d'affichage algérien
+const DAY_ORDER = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
 
 export default function Details() {
   const { lotId, name, totalSpots, latitude, longitude, type } =
@@ -146,9 +150,16 @@ export default function Details() {
           <Text style={s.hoursText}>Ouvert 24h/24 — 7j/7</Text>
         </View>
       );
+
+    // Afficher dans l'ordre algérien (dim → sam)
+    const hoursObj = hours as Record<string, string>;
+    const orderedEntries = DAY_ORDER.filter((day) => day in hoursObj).map(
+      (day) => [day, hoursObj[day]] as [string, string],
+    );
+
     return (
       <View style={s.hoursGrid}>
-        {Object.entries(hours as Record<string, string>).map(([day, slot]) => (
+        {orderedEntries.map(([day, slot]) => (
           <View key={day} style={s.hoursGridRow}>
             <Text style={s.hoursDay}>{DAY_LABELS[day] ?? day}</Text>
             <Text style={[s.hoursSlot, slot === "Fermé" && s.hoursFerme]}>
@@ -178,7 +189,6 @@ export default function Details() {
           style={s.heroGradient}
         >
           <View style={s.heroBottom}>
-            {/* Nom à gauche, badge en bas à droite */}
             <View style={{ flex: 1 }}>
               <Text style={s.heroName}>{name}</Text>
               <Text style={s.heroSubtitle}>
@@ -386,7 +396,7 @@ const s = StyleSheet.create({
   heroBottom: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end", // badge collé en bas à droite
+    alignItems: "flex-end",
   },
   heroName: {
     fontSize: 22,
@@ -396,7 +406,6 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   heroSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.75)" },
-  // Badge fixé en bas à droite, taille minimale, ne pousse pas le nom
   typeBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -446,7 +455,6 @@ const s = StyleSheet.create({
   statNumber: { fontSize: 28, fontWeight: "700", color: "#2e1a1a" },
   statLabel: { fontSize: 12, color: "#888", marginTop: 2 },
   divider: { width: 1, backgroundColor: "#eee", marginVertical: 4 },
-
   infoSection: {
     backgroundColor: "#fff",
     borderRadius: 14,

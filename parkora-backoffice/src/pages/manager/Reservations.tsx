@@ -37,21 +37,15 @@ const STATUS_CFG: Record<
   },
 };
 
-// ── Calcule si une réservation "confirmed" est actuellement en cours ──────────
 function getDisplayStatus(r: Reservation): string {
   if (r.status !== "confirmed") return r.status;
-
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
   if (r.date !== todayStr) return "confirmed";
-
   const [sh, sm] = r.start_time.split(":").map(Number);
   const [eh, em] = r.end_time.split(":").map(Number);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const startMin = sh * 60 + sm;
-  const endMin = eh * 60 + em;
-
-  if (nowMin >= startMin && nowMin < endMin) return "ongoing";
+  if (nowMin >= sh * 60 + sm && nowMin < eh * 60 + em) return "ongoing";
   return "confirmed";
 }
 
@@ -66,6 +60,71 @@ function formatDuration(mins: number) {
     : `${m} min`;
 }
 
+// ── Modal détail ──────────────────────────────────────────────────────────────
+
+function ReservationDetailModal({
+  r,
+  onClose,
+}: {
+  r: Reservation;
+  onClose: () => void;
+}) {
+  return (
+    <div style={ms.overlay} onClick={onClose}>
+      <div style={ms.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={ms.mHeader}>
+          <h3 style={ms.mTitle}>Détail de la réservation</h3>
+          <button style={ms.closeBtn} onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        {/* Client */}
+        <div style={ms.section}>
+          <p style={ms.sectionLabel}>Client</p>
+          <InfoRow label="Nom" value={r.user_name || "—"} />
+          <InfoRow label="Téléphone" value={r.user_phone || "—"} />
+          <InfoRow label="Email" value={r.user_email || "—"} />
+          <InfoRow
+            label="Immatriculation"
+            value={r.user_plate || "Non renseignée"}
+          />
+        </div>
+
+        {/* Réservation */}
+        <div style={ms.section}>
+          <p style={ms.sectionLabel}>Réservation</p>
+          <InfoRow label="Place" value={`N°${r.spot_id}`} />
+          <InfoRow label="Date" value={r.date} />
+          <InfoRow label="Horaire" value={`${r.start_time} → ${r.end_time}`} />
+          <InfoRow label="Durée" value={formatDuration(r.duration_min)} />
+          <InfoRow label="Montant" value={`${r.total_price} DA`} />
+          <InfoRow label="Paiement" value={r.payment_method.toUpperCase()} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <span style={{ fontSize: "13px", color: "#94a3b8" }}>{label}</span>
+      <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ── Page principale ───────────────────────────────────────────────────────────
+
 export default function Reservations() {
   const { token } = useAuth();
 
@@ -78,6 +137,8 @@ export default function Reservations() {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
+  const [detailReservation, setDetailReservation] =
+    useState<Reservation | null>(null);
 
   const fetchRef = useRef({ token, tab, status, date });
   useEffect(() => {
@@ -209,7 +270,7 @@ export default function Reservations() {
 
       {error && <div style={s.errorBox}>{error}</div>}
 
-      {/* Contenu */}
+      {/* Tableau */}
       {loading ? (
         <Loader />
       ) : items.length === 0 ? (
@@ -237,7 +298,7 @@ export default function Reservations() {
                   "Durée",
                   "Montant",
                   "Statut",
-                  "Actions",
+                  "",
                 ].map((h) => (
                   <th key={h} style={s.th}>
                     {h}
@@ -283,14 +344,22 @@ export default function Reservations() {
                       </span>
                     </td>
                     <td style={s.td}>
-                      {r.status === "confirmed" && (
+                      <div style={s.actionRow}>
                         <button
-                          style={s.cancelBtn}
-                          onClick={() => setCancelId(r.id)}
+                          style={s.detailBtn}
+                          onClick={() => setDetailReservation(r)}
                         >
-                          Annuler
+                          Détails
                         </button>
-                      )}
+                        {r.status === "confirmed" && (
+                          <button
+                            style={s.cancelBtn}
+                            onClick={() => setCancelId(r.id)}
+                          >
+                            Annuler
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -308,6 +377,13 @@ export default function Reservations() {
           onConfirm={confirmCancel}
           onCancel={() => setCancelId(null)}
           danger
+        />
+      )}
+
+      {detailReservation && (
+        <ReservationDetailModal
+          r={detailReservation}
+          onClose={() => setDetailReservation(null)}
         />
       )}
     </div>
@@ -466,6 +542,17 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     fontWeight: 700,
   },
+  actionRow: { display: "flex", gap: "8px" },
+  detailBtn: {
+    background: "#f0f4f8",
+    border: "none",
+    borderRadius: "7px",
+    color: "#64748b",
+    fontSize: "12px",
+    padding: "5px 12px",
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
   cancelBtn: {
     background: "#fef2f2",
     border: "1px solid #fecaca",
@@ -475,5 +562,59 @@ const s: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: "12px",
     fontFamily: "inherit",
+  },
+};
+
+const ms: Record<string, React.CSSProperties> = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 200,
+  },
+  modal: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "16px",
+    padding: "24px",
+    width: "100%",
+    maxWidth: "440px",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  mHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  mTitle: { fontSize: "18px", fontWeight: 700, color: "#1a1a2e" },
+  closeBtn: {
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    fontSize: "18px",
+    padding: "4px",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    background: "#f8fafc",
+    borderRadius: "10px",
+    padding: "14px 16px",
+  },
+  sectionLabel: {
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+    marginBottom: "2px",
   },
 };

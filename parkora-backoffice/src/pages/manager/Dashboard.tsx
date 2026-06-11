@@ -3,10 +3,90 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useManagerParking } from "../../context/ManagerContext";
-import { managerApi, type TodayReservations } from "../../api/managerApi";
+import {
+  managerApi,
+  type TodayReservations,
+  type Reservation,
+} from "../../api/managerApi";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 const WS_URL = import.meta.env.VITE_WS_URL as string;
+
+// ── Modal détail réservation ──────────────────────────────────────────────────
+
+function ReservationDetailModal({
+  r,
+  onClose,
+}: {
+  r: Reservation;
+  onClose: () => void;
+}) {
+  return (
+    <div style={ms.overlay} onClick={onClose}>
+      <div style={ms.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={ms.mHeader}>
+          <h3 style={ms.mTitle}>Détail de la réservation</h3>
+          <button style={ms.closeBtn} onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        {/* Client */}
+        <div style={ms.section}>
+          <p style={ms.sectionLabel}>Client</p>
+          <InfoRow label="Nom" value={r.user_name || "—"} />
+          <InfoRow label="Téléphone" value={r.user_phone || "—"} />
+          <InfoRow label="Email" value={r.user_email || "—"} />
+          <InfoRow
+            label="Immatriculation"
+            value={r.user_plate || "Non renseignée"}
+          />
+        </div>
+
+        {/* Réservation */}
+        <div style={ms.section}>
+          <p style={ms.sectionLabel}>Réservation</p>
+          <InfoRow label="Place" value={`N°${r.spot_id}`} />
+          <InfoRow label="Date" value={r.date} />
+          <InfoRow label="Horaire" value={`${r.start_time} → ${r.end_time}`} />
+          <InfoRow label="Durée" value={formatDuration(r.duration_min)} />
+          <InfoRow label="Montant" value={`${r.total_price} DA`} />
+          <InfoRow label="Paiement" value={r.payment_method.toUpperCase()} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <span style={{ fontSize: "13px", color: "#94a3b8" }}>{label}</span>
+      <span style={{ fontSize: "13px", fontWeight: 600, color: "#1a1a2e" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function formatDuration(mins: number) {
+  if (!mins) return "—";
+  const h = Math.floor(mins / 60),
+    m = mins % 60;
+  return h > 0
+    ? m > 0
+      ? `${h}h${String(m).padStart(2, "0")}`
+      : `${h}h`
+    : `${m} min`;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function ManagerDashboard() {
   const { token } = useAuth();
@@ -18,6 +98,8 @@ export default function ManagerDashboard() {
   const [wsStatus, setWsStatus] = useState<
     "connecting" | "connected" | "disconnected"
   >("connecting");
+  const [detailReservation, setDetailReservation] =
+    useState<Reservation | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -200,7 +282,7 @@ export default function ManagerDashboard() {
           <table style={s.table}>
             <thead>
               <tr>
-                {["Place", "Horaire", "Durée", "Montant", "Client ID"].map(
+                {["Place", "Horaire", "Durée", "Montant", "Client", ""].map(
                   (h) => (
                     <th key={h} style={s.th}>
                       {h}
@@ -224,7 +306,17 @@ export default function ManagerDashboard() {
                     <span style={s.priceBadge}>{r.total_price} DA</span>
                   </td>
                   <td style={s.td}>
-                    <code style={s.monoId}>{r.user_id.slice(-8)}</code>
+                    <span style={{ fontWeight: 600, color: "#1a1a2e" }}>
+                      {r.user_name || "—"}
+                    </span>
+                  </td>
+                  <td style={s.td}>
+                    <button
+                      style={s.detailBtn}
+                      onClick={() => setDetailReservation(r)}
+                    >
+                      Détails
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -232,19 +324,15 @@ export default function ManagerDashboard() {
           </table>
         </div>
       )}
+
+      {detailReservation && (
+        <ReservationDetailModal
+          r={detailReservation}
+          onClose={() => setDetailReservation(null)}
+        />
+      )}
     </div>
   );
-}
-
-function formatDuration(mins: number) {
-  if (!mins) return "—";
-  const h = Math.floor(mins / 60),
-    m = mins % 60;
-  return h > 0
-    ? m > 0
-      ? `${h}h${String(m).padStart(2, "0")}`
-      : `${h}h`
-    : `${m} min`;
 }
 
 function Loader() {
@@ -474,12 +562,68 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 700,
   },
   priceBadge: { color: "#7c3aed", fontWeight: 700 },
-  monoId: {
-    fontSize: "11px",
-    color: "#94a3b8",
-    fontFamily: "monospace",
+  detailBtn: {
     background: "#f0f4f8",
-    padding: "2px 6px",
-    borderRadius: "4px",
+    border: "none",
+    borderRadius: "7px",
+    color: "#64748b",
+    fontSize: "12px",
+    padding: "5px 12px",
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+};
+
+const ms: Record<string, React.CSSProperties> = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 200,
+  },
+  modal: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "16px",
+    padding: "24px",
+    width: "100%",
+    maxWidth: "440px",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  mHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  mTitle: { fontSize: "18px", fontWeight: 700, color: "#1a1a2e" },
+  closeBtn: {
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    fontSize: "18px",
+    padding: "4px",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    background: "#f8fafc",
+    borderRadius: "10px",
+    padding: "14px 16px",
+  },
+  sectionLabel: {
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+    marginBottom: "2px",
   },
 };
