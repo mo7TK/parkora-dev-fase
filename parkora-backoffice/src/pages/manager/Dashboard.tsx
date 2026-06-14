@@ -1,5 +1,5 @@
 // src/pages/manager/Dashboard.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useManagerParking } from "../../context/ManagerContext";
@@ -7,10 +7,225 @@ import {
   managerApi,
   type TodayReservations,
   type Reservation,
+  type ParkingStats,
 } from "../../api/managerApi";
-
+import { Landmark, Banknote } from "lucide-react";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 const WS_URL = import.meta.env.VITE_WS_URL as string;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatDuration(mins: number) {
+  if (!mins) return "—";
+  const h = Math.floor(mins / 60),
+    m = mins % 60;
+  return h > 0
+    ? m > 0
+      ? `${h}h${String(m).padStart(2, "0")}`
+      : `${h}h`
+    : `${m} min`;
+}
+
+function fmtDA(n: number) {
+  return n.toLocaleString("fr-DZ") + " DA";
+}
+
+// ── Chart.js bar chart (reservations + annulations + taux %) ─────────────────
+
+function ReservationsBarChart({
+  stats,
+  mode = "month",
+  today,
+}: {
+  stats: ParkingStats | null;
+  mode?: "month" | "today";
+  today?: TodayReservations | null;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    if ((window as unknown as Record<string, unknown>).Chart) return;
+    const s = document.createElement("script");
+    s.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js";
+    document.head.appendChild(s);
+  }, []);
+
+  useEffect(() => {
+    if (!stats) return;
+
+    const tryDraw = () => {
+      if (!(window as unknown as Record<string, unknown>).Chart) {
+        setTimeout(tryDraw, 100);
+        return;
+      }
+      const ctx = canvasRef.current;
+      if (!ctx) return;
+
+      const confirmedVal =
+        mode === "today" ? (stats.confirmed_jour ?? 0) : stats.confirmed_mois;
+      const completedVal =
+        mode === "today" ? (stats.completed_jour ?? 0) : stats.completed_mois;
+      const cancelledVal =
+        mode === "today" ? (stats.cancelled_jour ?? 0) : stats.cancelled_mois;
+      const totalVal2 = Math.max(confirmedVal + completedVal + cancelledVal, 1);
+      const confirmedPct = Math.round((confirmedVal / totalVal2) * 100);
+      const completedPct = Math.round((completedVal / totalVal2) * 100);
+      const cancelledPct = Math.round((cancelledVal / totalVal2) * 100);
+
+      if (chartRef.current) {
+        (chartRef.current as { destroy: () => void }).destroy();
+      }
+
+      // @ts-expect-error Chart loaded via CDN
+      chartRef.current = new window.Chart(ctx, {
+        type: "bar",
+        data: {
+          labels:
+            mode === "today"
+              ? ["Honorées", "Annulées", "Programmées"]
+              : ["Honorées", "Annulées"],
+          datasets: [
+            {
+              data:
+                mode === "today"
+                  ? [completedVal, cancelledVal, confirmedVal]
+                  : [completedVal, cancelledVal],
+              backgroundColor:
+                mode === "today"
+                  ? ["#22c55e", "#ef4444", "#1a73e8"]
+                  : ["#22c55e", "#ef4444"],
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: 48,
+              barThickness: 40,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx: { raw: number; dataIndex: number }) => {
+                  const pcts =
+                    mode === "today"
+                      ? [completedPct, cancelledPct, confirmedPct]
+                      : [completedPct, cancelledPct];
+                  return `${ctx.raw} (${pcts[ctx.dataIndex] ?? 0}%)`;
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1, color: "#94a3b8", font: { size: 11 } },
+              grid: { color: "#f1f5f9" },
+            },
+            x: {
+              ticks: { color: "#64748b", font: { size: 12, weight: "600" } },
+              grid: { display: false },
+            },
+          },
+          animation: { duration: 600 },
+        },
+        plugins: [
+          {
+            id: "insideLabels",
+            afterDatasetsDraw(chart: {
+              ctx: CanvasRenderingContext2D;
+              data: { datasets: { data: number[] }[] };
+              getDatasetMeta: (i: number) => {
+                data: { x: number; y: number; width: number; height: number }[];
+              };
+            }) {
+              const { ctx: c, data } = chart;
+              const meta = chart.getDatasetMeta(0);
+              const totalVal = Math.max(
+                mode === "today"
+                  ? (stats!.total_jour ?? stats!.total_mois)
+                  : stats!.total_mois,
+                1,
+              );
+              data.datasets[0].data.forEach((val: number, i: number) => {
+                const bar = meta.data[i];
+                const pct = Math.round((val / totalVal) * 100);
+                const label = `${pct}%`;
+                c.save();
+                c.font = "bold 13px sans-serif";
+                c.fillStyle = "#fff";
+                c.textAlign = "center";
+                c.textBaseline = "middle";
+                const midY = bar.y + bar.height / 2;
+                if (bar.height > 22) {
+                  c.fillText(label, bar.x, midY);
+                }
+                c.restore();
+              });
+            },
+          },
+        ],
+      });
+    };
+    tryDraw();
+
+    return () => {
+      if (chartRef.current) {
+        (chartRef.current as { destroy: () => void }).destroy();
+        chartRef.current = null;
+      }
+    };
+  }, [stats]);
+
+  return (
+    <div style={s.chartCard}>
+      <p style={s.chartTitle}>
+        {mode === "today"
+          ? `Réservations du jour${stats ? ` (${stats.today})` : ""}`
+          : stats
+            ? `Réservations de ${new Date(stats.month + "-01").toLocaleDateString("fr-FR", { month: "long" })}`
+            : "Réservations du mois"}
+      </p>
+      {/* legend */}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
+        <span style={s.legendItem}>
+          <span style={{ ...s.legendDot, background: "#22c55e" }} />
+          {mode === "today"
+            ? `Honorées (${stats?.completed_jour ?? 0})`
+            : `Honorées (${stats?.completed_mois ?? 0})`}
+        </span>
+        <span style={s.legendItem}>
+          <span style={{ ...s.legendDot, background: "#ef4444" }} />
+          {mode === "today"
+            ? `Annulées (${stats?.cancelled_jour ?? 0})`
+            : `Annulées (${stats?.cancelled_mois ?? 0})`}
+        </span>
+        {mode === "today" && (
+          <span style={s.legendItem}>
+            <span style={{ ...s.legendDot, background: "#1a73e8" }} />
+            {`Programmées (${stats?.confirmed_jour ?? 0})`}
+          </span>
+        )}
+      </div>
+      <div style={{ position: "relative", height: "180px" }}>
+        {!stats && <div style={s.chartLoading}>Chargement…</div>}
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label="Diagramme en barres des réservations honorées et annulées du mois"
+        >
+          {stats
+            ? `Confirmées: ${stats.confirmed_mois}, Honorées: ${stats.completed_mois}, Annulées: ${stats.cancelled_mois}`
+            : "Chargement"}
+        </canvas>
+      </div>
+    </div>
+  );
+}
 
 // ── Modal détail réservation ──────────────────────────────────────────────────
 
@@ -30,8 +245,6 @@ function ReservationDetailModal({
             ✕
           </button>
         </div>
-
-        {/* Client */}
         <div style={ms.section}>
           <p style={ms.sectionLabel}>Client</p>
           <InfoRow label="Nom" value={r.user_name || "—"} />
@@ -42,8 +255,6 @@ function ReservationDetailModal({
             value={r.user_plate || "Non renseignée"}
           />
         </div>
-
-        {/* Réservation */}
         <div style={ms.section}>
           <p style={ms.sectionLabel}>Réservation</p>
           <InfoRow label="Place" value={`N°${r.spot_id}`} />
@@ -75,18 +286,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatDuration(mins: number) {
-  if (!mins) return "—";
-  const h = Math.floor(mins / 60),
-    m = mins % 60;
-  return h > 0
-    ? m > 0
-      ? `${h}h${String(m).padStart(2, "0")}`
-      : `${h}h`
-    : `${m} min`;
-}
-
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+// ── Dashboard principal ───────────────────────────────────────────────────────
 
 export default function ManagerDashboard() {
   const { token } = useAuth();
@@ -94,6 +294,7 @@ export default function ManagerDashboard() {
   const navigate = useNavigate();
 
   const [today, setToday] = useState<TodayReservations | null>(null);
+  const [stats, setStats] = useState<ParkingStats | null>(null);
   const [wsSpots, setWsSpots] = useState<{ id: number; status: string }[]>([]);
   const [wsStatus, setWsStatus] = useState<
     "connecting" | "connected" | "disconnected"
@@ -107,12 +308,15 @@ export default function ManagerDashboard() {
       .getTodayReservations(token)
       .then(setToday)
       .catch(() => {});
+    managerApi
+      .getStats(token)
+      .then(setStats)
+      .catch(() => {});
   }, [token]);
 
   useEffect(() => {
     if (!parking?.id) return;
     let ws: WebSocket;
-
     function connect() {
       ws = new WebSocket(`${WS_URL}/${parking!.id}`);
       ws.onopen = () => setWsStatus("connected");
@@ -131,6 +335,7 @@ export default function ManagerDashboard() {
   if (!parking)
     return <div style={{ color: "#ef4444" }}>Parking introuvable.</div>;
 
+  const isPaid = parking.type === "paid";
   const free = wsSpots.filter((s) => s.status === "free").length;
   const occupied = wsSpots.filter((s) => s.status === "occupied").length;
   const reserved = wsSpots.filter((s) => s.status === "reserved").length;
@@ -171,9 +376,7 @@ export default function ManagerDashboard() {
           <p style={s.parkingBio}>{parking.bio || "—"}</p>
           <div style={s.parkingMeta}>
             <span style={s.metaChip}>
-              {parking.type === "paid"
-                ? `${parking.price_per_hour} DA/h`
-                : "Gratuit"}
+              {isPaid ? `${parking.price_per_hour} DA/h` : "Gratuit"}
             </span>
             <span style={s.metaChip}>{parking.total_spots} places</span>
           </div>
@@ -186,7 +389,7 @@ export default function ManagerDashboard() {
         </div>
       </div>
 
-      {/* ── Stats temps réel ─────────────────────────────────────────────── */}
+      {/* ── Occupation en temps réel ─────────────────────────────────────── */}
       <div style={s.sectionHeader}>
         <span style={s.sectionTitle}>Occupation en temps réel</span>
         <span
@@ -220,7 +423,7 @@ export default function ManagerDashboard() {
           total={total}
         />
         <StatCard
-          label="Taux remplissage"
+          label="Taux de remplissage"
           value={`${fillPct}%`}
           color="#1a73e8"
         />
@@ -257,6 +460,79 @@ export default function ManagerDashboard() {
             <LegendItem color="#ef4444" label={`Occupés (${occupied})`} />
           </div>
         </div>
+      )}
+
+      {/* ── Statistiques du mois — parking payant uniquement ─────────────── */}
+      {isPaid && (
+        <>
+          <div style={s.sectionHeader}>
+            <span style={s.sectionTitle}>Statistiques du mois</span>
+            {stats && (
+              <span style={s.monthBadge}>
+                {new Date(stats.month + "-01").toLocaleDateString("fr-FR", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
+            )}
+          </div>
+
+          <div
+            style={{ ...s.statsMonthGrid, gridTemplateColumns: "1fr 1fr 1fr" }}
+          >
+            {/* ── Gauche : revenus empilés ─── */}
+            <div style={s.revenueCard}>
+              {/* Revenu du mois */}
+              <div style={s.revenueRow}>
+                <div style={{ ...s.revenueIconWrap, background: "#dcfce7" }}>
+                  <Landmark size={20} />
+                </div>
+                <div>
+                  <p style={s.revenueLabel}>
+                    {stats
+                      ? `Revenu de ${new Date(stats.month + "-01").toLocaleDateString("fr-FR", { month: "long" })}`
+                      : "Revenu du mois"}
+                  </p>
+                  <p style={s.revenueValue}>
+                    {stats ? fmtDA(stats.revenu_mois) : "…"}
+                  </p>
+                  {stats && (
+                    <p style={s.revenueSub}>
+                      {stats.completed_mois} réservation
+                      {stats.completed_mois !== 1 ? "s" : ""} honorées
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div style={s.revenueDivider} />
+
+              {/* Revenu du jour */}
+              <div style={s.revenueRow}>
+                <div style={{ ...s.revenueIconWrap, background: "#dcfce7" }}>
+                  <Banknote size={20} />
+                </div>
+                <div>
+                  <p style={s.revenueLabel}>Revenu du jour</p>
+                  <p style={s.revenueValue}>
+                    {stats ? fmtDA(stats.revenu_jour) : "…"}
+                  </p>
+                  {stats && (
+                    <p style={s.revenueSub}>
+                      {today?.total ?? 0} réservation
+                      {(today?.total ?? 0) !== 1 ? "s" : ""} aujourd'hui
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Milieu : diagramme du mois ─── */}
+            <ReservationsBarChart stats={stats} mode="month" />
+            {/* ── Droite : diagramme du jour ─── */}
+            <ReservationsBarChart stats={stats} mode="today" today={today} />
+          </div>
+        </>
       )}
 
       {/* ── Planning du jour ─────────────────────────────────────────────── */}
@@ -335,25 +611,7 @@ export default function ManagerDashboard() {
   );
 }
 
-function Loader() {
-  return (
-    <div
-      style={{ display: "flex", justifyContent: "center", paddingTop: "60px" }}
-    >
-      <div
-        style={{
-          width: "28px",
-          height: "28px",
-          border: "3px solid #e2e8f0",
-          borderTop: "3px solid #1a73e8",
-          borderRadius: "50%",
-          animation: "spin 0.8s linear infinite",
-        }}
-      />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
-}
+// ── Sous-composants ───────────────────────────────────────────────────────────
 
 function StatCard({
   label,
@@ -406,8 +664,31 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
+function Loader() {
+  return (
+    <div
+      style={{ display: "flex", justifyContent: "center", paddingTop: "60px" }}
+    >
+      <div
+        style={{
+          width: "28px",
+          height: "28px",
+          border: "3px solid #e2e8f0",
+          borderTop: "3px solid #1a73e8",
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const s: Record<string, React.CSSProperties> = {
   page: { display: "flex", flexDirection: "column", gap: "20px" },
+
   parkingCard: {
     display: "flex",
     background: "#fff",
@@ -468,26 +749,121 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     marginTop: "4px",
   },
+
   sectionHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
   },
   sectionTitle: { fontSize: "15px", fontWeight: 700, color: "#1a1a2e" },
+  monthBadge: {
+    fontSize: "11px",
+    fontWeight: 600,
+    padding: "4px 12px",
+    borderRadius: "20px",
+    background: "#f0f4f8",
+    color: "#64748b",
+    border: "1px solid #e2e8f0",
+    textTransform: "capitalize",
+  },
+
+  statsMonthGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1.5fr",
+    gap: "14px",
+    alignItems: "stretch",
+  },
+
+  revenueCard: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    padding: "20px 24px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    gap: "0px",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+  },
+  revenueRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    padding: "12px 0",
+  },
+  revenueIconWrap: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  revenueLabel: {
+    fontSize: "12px",
+    color: "#94a3b8",
+    fontWeight: 600,
+    margin: 0,
+    marginBottom: "2px",
+  },
+  revenueValue: {
+    fontSize: "20px",
+    fontWeight: 800,
+    margin: 0,
+    lineHeight: 1.2,
+    color: "#1a1a2e",
+  },
+  revenueSub: {
+    fontSize: "11px",
+    color: "#94a3b8",
+    margin: 0,
+    marginTop: "2px",
+  },
+  revenueDivider: { height: "1px", background: "#f1f5f9", margin: "0 0" },
+
+  chartCard: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    padding: "20px 24px",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+  },
+  chartTitle: {
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "#1a1a2e",
+    margin: 0,
+    marginBottom: "10px",
+  },
+  chartLoading: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    color: "#94a3b8",
+  },
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "12px",
+    color: "#64748b",
+  },
+  legendDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "2px",
+    display: "inline-block",
+  },
+
   wsBadge: {
     fontSize: "11px",
     fontWeight: 600,
     padding: "4px 12px",
     borderRadius: "20px",
-  },
-  countBadge: {
-    background: "#e8f0fe",
-    color: "#1a73e8",
-    border: "1px solid #bfdbfe",
-    borderRadius: "20px",
-    padding: "3px 12px",
-    fontSize: "12px",
-    fontWeight: 600,
   },
   statsGrid: {
     display: "grid",
@@ -519,6 +895,16 @@ const s: Record<string, React.CSSProperties> = {
   },
   barSeg: { height: "100%", transition: "width 0.4s ease" },
   barLegend: { display: "flex", gap: "20px" },
+
+  countBadge: {
+    background: "#e8f0fe",
+    color: "#1a73e8",
+    border: "1px solid #bfdbfe",
+    borderRadius: "20px",
+    padding: "3px 12px",
+    fontSize: "12px",
+    fontWeight: 600,
+  },
   emptyBox: {
     background: "#fff",
     border: "1px solid #e2e8f0",

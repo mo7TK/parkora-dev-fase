@@ -68,6 +68,10 @@ from routes.backoffice_manager_password import router as backoffice_manager_pass
 from routes.stream import router as stream_router
 
 
+# ── Router backoffice stats ───────────────────────────────────────────────
+from routes.backoffice_stats import router as backoffice_stats_router
+
+
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -122,7 +126,7 @@ app.include_router(backoffice_clients_router)
 app.include_router(backoffice_parking_manager_router)
 app.include_router(backoffice_reservations_router)
 app.include_router(backoffice_manager_password_router)
-
+app.include_router(backoffice_stats_router)
 
 # ── Router stream MJPEG ───────────────────────────────────────────────────────
 

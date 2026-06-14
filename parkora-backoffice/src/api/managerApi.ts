@@ -58,6 +58,23 @@ export interface ChangePasswordBody {
   new_password: string;
 }
 
+export interface ParkingStats {
+  revenu_jour: number;
+  revenu_mois: number;
+  taux_occupation: number;
+  taux_annulation: number;
+  total_mois: number;
+  confirmed_mois: number;
+  completed_mois: number;
+  cancelled_mois: number;
+  total_jour: number;
+  confirmed_jour: number;
+  completed_jour: number;
+  cancelled_jour: number;
+  month: string;
+  today: string;
+}
+
 function h(token: string): HeadersInit {
   return {
     "Content-Type": "application/json",
@@ -98,6 +115,9 @@ export const managerApi = {
 
   getTodayReservations: (token: string) =>
     req<TodayReservations>(`${BASE}/reservations/today`, { headers: h(token) }),
+
+  getStats: (token: string) =>
+    req<ParkingStats>(`${BASE}/stats`, { headers: h(token) }),
 
   cancelReservation: (token: string, id: string) =>
     req<{ status: string }>(`${BASE}/reservations/${id}`, {
