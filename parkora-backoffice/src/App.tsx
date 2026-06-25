@@ -5,7 +5,8 @@ import { ManagerProvider } from "./context/ManagerContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-import Login from "./pages/Login";
+import LoginAdmin from "./pages/LoginAdmin";
+import LoginManager from "./pages/LoginManager";
 
 // ── Layouts ───────────────────────────────────────────────────────────────────
 import AdminLayout from "./layouts/AdminLayout";
@@ -31,7 +32,7 @@ import LiveStream from "./pages/manager/LiveStream";
 function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login/admin" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
   return <Navigate to="/manager" replace />;
 }
@@ -55,7 +56,9 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* ── Public ───────────────────────────────────────────────────── */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<Navigate to="/login/admin" replace />} />
+        <Route path="/login/admin" element={<LoginAdmin />} />
+        <Route path="/login/manager" element={<LoginManager />} />
         <Route path="/" element={<RootRedirect />} />
 
         {/* ── Admin ────────────────────────────────────────────────────── */}

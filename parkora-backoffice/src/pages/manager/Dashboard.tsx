@@ -429,39 +429,6 @@ export default function ManagerDashboard() {
         />
       </div>
 
-      {wsSpots.length > 0 && (
-        <div style={s.barCard}>
-          <div style={s.barTrack}>
-            <div
-              style={{
-                ...s.barSeg,
-                width: `${(free / total) * 100}%`,
-                background: "#22c55e",
-              }}
-            />
-            <div
-              style={{
-                ...s.barSeg,
-                width: `${(reserved / total) * 100}%`,
-                background: "#f97316",
-              }}
-            />
-            <div
-              style={{
-                ...s.barSeg,
-                width: `${(occupied / total) * 100}%`,
-                background: "#ef4444",
-              }}
-            />
-          </div>
-          <div style={s.barLegend}>
-            <LegendItem color="#22c55e" label={`Libres (${free})`} />
-            <LegendItem color="#f97316" label={`Réservés (${reserved})`} />
-            <LegendItem color="#ef4444" label={`Occupés (${occupied})`} />
-          </div>
-        </div>
-      )}
-
       {/* ── Statistiques du mois — parking payant uniquement ─────────────── */}
       {isPaid && (
         <>
@@ -644,22 +611,6 @@ function StatCard({
           sur {total} places
         </div>
       )}
-    </div>
-  );
-}
-
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <div
-        style={{
-          width: "10px",
-          height: "10px",
-          borderRadius: "2px",
-          background: color,
-        }}
-      />
-      <span style={{ fontSize: "12px", color: "#64748b" }}>{label}</span>
     </div>
   );
 }
@@ -877,24 +828,6 @@ const s: Record<string, React.CSSProperties> = {
     padding: "20px",
     boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
   },
-  barCard: {
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    padding: "16px 20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-  barTrack: {
-    height: "8px",
-    borderRadius: "4px",
-    background: "#f0f4f8",
-    display: "flex",
-    overflow: "hidden",
-  },
-  barSeg: { height: "100%", transition: "width 0.4s ease" },
-  barLegend: { display: "flex", gap: "20px" },
 
   countBadge: {
     background: "#e8f0fe",

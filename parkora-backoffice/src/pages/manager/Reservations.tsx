@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { managerApi, type Reservation } from "../../api/managerApi";
-import { Modal } from "../admin/ParkingsList";
 
 type FilterStatus = "all" | "confirmed" | "cancelled";
 type FilterTab = "today" | "all";
@@ -37,6 +36,15 @@ const STATUS_CFG: Record<
   },
 };
 
+// Motifs prédéfinis pour accélérer la saisie
+const PRESET_REASONS = [
+  "Fermeture exceptionnelle du parking",
+  "Travaux de maintenance",
+  "Problème technique",
+  "Place réservée pour un évènement",
+  "Erreur de réservation",
+];
+
 function getDisplayStatus(r: Reservation): string {
   if (r.status !== "confirmed") return r.status;
   const now = new Date();
@@ -60,7 +68,7 @@ function formatDuration(mins: number) {
     : `${m} min`;
 }
 
-// ── Modal détail ──────────────────────────────────────────────────────────────
+// ── Modal détail réservation ──────────────────────────────────────────────────
 
 function ReservationDetailModal({
   r,
@@ -79,7 +87,6 @@ function ReservationDetailModal({
           </button>
         </div>
 
-        {/* Client */}
         <div style={ms.section}>
           <p style={ms.sectionLabel}>Client</p>
           <InfoRow label="Nom" value={r.user_name || "—"} />
@@ -91,7 +98,6 @@ function ReservationDetailModal({
           />
         </div>
 
-        {/* Réservation */}
         <div style={ms.section}>
           <p style={ms.sectionLabel}>Réservation</p>
           <InfoRow label="Place" value={`N°${r.spot_id}`} />
@@ -101,6 +107,39 @@ function ReservationDetailModal({
           <InfoRow label="Montant" value={`${r.total_price} DA`} />
           <InfoRow label="Paiement" value={r.payment_method.toUpperCase()} />
         </div>
+
+        {/* Motif d'annulation si présent */}
+        {r.status === "cancelled" && r.cancellation_reason && (
+          <div
+            style={{
+              ...ms.section,
+              background: "#fef9ec",
+              border: "1px solid #fde68a",
+            }}
+          >
+            <p style={{ ...ms.sectionLabel, color: "#92400e" }}>
+              Motif d'annulation
+            </p>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "#92400e",
+                fontWeight: 500,
+                lineHeight: "1.5",
+              }}
+            >
+              {r.cancellation_reason}
+            </p>
+            {r.cancelled_by && (
+              <p
+                style={{ fontSize: "12px", color: "#a16207", marginTop: "4px" }}
+              >
+                Annulée par :{" "}
+                {r.cancelled_by === "manager" ? "le gestionnaire" : "le client"}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -123,6 +162,185 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ── Modal d'annulation avec motif ─────────────────────────────────────────────
+
+function CancelModal({
+  reservation,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  reservation: Reservation;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [reason, setReason] = useState("");
+
+  return (
+    <div style={ms.overlay} onClick={onCancel}>
+      <div
+        style={{ ...ms.modal, maxWidth: "500px" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* En-tête */}
+        <div style={ms.mHeader}>
+          <h3 style={{ ...ms.mTitle, color: "#dc2626" }}>
+            Annuler la réservation
+          </h3>
+          <button style={ms.closeBtn} onClick={onCancel}>
+            ✕
+          </button>
+        </div>
+
+        {/* Résumé réservation */}
+        <div
+          style={{
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "10px",
+            padding: "12px 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "13px",
+              fontWeight: 700,
+              color: "#dc2626",
+              margin: 0,
+            }}
+          >
+            Place N°{reservation.spot_id} · {reservation.date}
+          </p>
+          <p style={{ fontSize: "13px", color: "#7f1d1d", margin: 0 }}>
+            {reservation.start_time} → {reservation.end_time} ·{" "}
+            {reservation.user_name || "Client"}
+          </p>
+        </div>
+
+        {/* Motif */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <label
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#64748b",
+              textTransform: "uppercase" as const,
+              letterSpacing: "0.4px",
+            }}
+          >
+            Motif d'annulation{" "}
+            <span style={{ fontWeight: 400, color: "#94a3b8" }}>
+              (optionnel)
+            </span>
+          </label>
+
+          {/* Motifs prédéfinis */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+            {PRESET_REASONS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: "20px",
+                  border: `1.5px solid ${reason === preset ? "#ef4444" : "#e2e8f0"}`,
+                  background: reason === preset ? "#fef2f2" : "#f7f9fc",
+                  color: reason === preset ? "#dc2626" : "#64748b",
+                  fontSize: "12px",
+                  fontWeight: reason === preset ? 600 : 400,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "all 0.1s",
+                }}
+                onClick={() => setReason(reason === preset ? "" : preset)}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          {/* Champ libre */}
+          <textarea
+            style={{
+              background: "#f7f9fc",
+              border: "1.5px solid #e2e8f0",
+              borderRadius: "9px",
+              padding: "10px 14px",
+              color: "#1a1a2e",
+              fontSize: "14px",
+              fontFamily: "inherit",
+              outline: "none",
+              resize: "vertical",
+              minHeight: "80px",
+              width: "100%",
+            }}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ou saisissez un motif personnalisé… (visible par le client dans son historique)"
+            maxLength={300}
+          />
+          {reason.length > 0 && (
+            <p
+              style={{
+                fontSize: "11px",
+                color: "#94a3b8",
+                textAlign: "right" as const,
+                margin: 0,
+              }}
+            >
+              {reason.length}/300
+            </p>
+          )}
+
+          {reason.trim().length > 0 && (
+            <div
+              style={{
+                background: "#f0f9ff",
+                border: "1px solid #bae6fd",
+                borderRadius: "8px",
+                padding: "10px 14px",
+                fontSize: "12px",
+                color: "#0369a1",
+              }}
+            >
+              Ce motif sera visible par le client dans l'historique de ses
+              réservations.
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div
+          style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}
+        >
+          <button
+            style={ms.cancelActionBtn}
+            onClick={onCancel}
+            disabled={loading}
+          >
+            Garder la réservation
+          </button>
+          <button
+            style={{
+              ...ms.confirmActionBtn,
+              background: loading ? "#fca5a5" : "#ef4444",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+            onClick={() => onConfirm(reason.trim())}
+            disabled={loading}
+          >
+            {loading ? "Annulation…" : "Confirmer l'annulation"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 
 export default function Reservations() {
@@ -134,7 +352,7 @@ export default function Reservations() {
   const [items, setItems] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
   const [detailReservation, setDetailReservation] =
@@ -179,25 +397,35 @@ export default function Reservations() {
     fetchData();
   }, [fetchData, token, tab, status, date]);
 
-  async function confirmCancel() {
-    if (!cancelId || !token) return;
+  async function confirmCancel(reason: string) {
+    if (!cancelTarget || !token) return;
     setCancelling(true);
     try {
-      await managerApi.cancelReservation(token, cancelId);
+      await managerApi.cancelReservation(
+        token,
+        cancelTarget.id,
+        reason || undefined,
+      );
+      // Mettre à jour localement avec le motif
       setItems((prev) =>
         prev.map((r) =>
-          r.id === cancelId ? { ...r, status: "cancelled" as const } : r,
+          r.id === cancelTarget.id
+            ? {
+                ...r,
+                status: "cancelled" as const,
+                cancellation_reason: reason || null,
+                cancelled_by: "manager",
+              }
+            : r,
         ),
       );
-      setCancelId(null);
+      setCancelTarget(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur annulation");
     } finally {
       setCancelling(false);
     }
   }
-
-  const cancelTarget = items.find((r) => r.id === cancelId);
 
   return (
     <div style={s.page}>
@@ -310,6 +538,9 @@ export default function Reservations() {
               {items.map((r) => {
                 const displayStatus = getDisplayStatus(r);
                 const cfg = STATUS_CFG[displayStatus] ?? STATUS_CFG.completed;
+                const hasCancelReason =
+                  r.status === "cancelled" && r.cancellation_reason;
+
                 return (
                   <tr key={r.id} style={s.tr}>
                     <td style={s.td}>
@@ -329,19 +560,43 @@ export default function Reservations() {
                       </span>
                     </td>
                     <td style={s.td}>
-                      <span
+                      <div
                         style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          padding: "3px 10px",
-                          borderRadius: "20px",
-                          background: cfg.bg,
-                          color: cfg.color,
-                          border: `1px solid ${cfg.border}`,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
                         }}
                       >
-                        {cfg.label}
-                      </span>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            padding: "3px 10px",
+                            borderRadius: "20px",
+                            background: cfg.bg,
+                            color: cfg.color,
+                            border: `1px solid ${cfg.border}`,
+                            display: "inline-block",
+                            width: "fit-content",
+                          }}
+                        >
+                          {cfg.label}
+                        </span>
+                        {/* Indicateur motif d'annulation */}
+                        {hasCancelReason && (
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "#a16207",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            💬 Motif renseigné
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={s.td}>
                       <div style={s.actionRow}>
@@ -354,7 +609,7 @@ export default function Reservations() {
                         {r.status === "confirmed" && (
                           <button
                             style={s.cancelBtn}
-                            onClick={() => setCancelId(r.id)}
+                            onClick={() => setCancelTarget(r)}
                           >
                             Annuler
                           </button>
@@ -369,17 +624,17 @@ export default function Reservations() {
         </div>
       )}
 
-      {cancelId && cancelTarget && (
-        <Modal
-          title="Annuler cette réservation ?"
-          message={`Place N°${cancelTarget.spot_id} · ${cancelTarget.date} · ${cancelTarget.start_time} → ${cancelTarget.end_time}. Le client sera impacté.`}
-          confirmLabel={cancelling ? "Annulation…" : "Oui, annuler"}
+      {/* Modal annulation avec motif */}
+      {cancelTarget && (
+        <CancelModal
+          reservation={cancelTarget}
           onConfirm={confirmCancel}
-          onCancel={() => setCancelId(null)}
-          danger
+          onCancel={() => setCancelTarget(null)}
+          loading={cancelling}
         />
       )}
 
+      {/* Modal détail */}
       {detailReservation && (
         <ReservationDetailModal
           r={detailReservation}
@@ -616,5 +871,24 @@ const ms: Record<string, React.CSSProperties> = {
     textTransform: "uppercase",
     letterSpacing: "0.8px",
     marginBottom: "2px",
+  },
+  cancelActionBtn: {
+    background: "#f0f4f8",
+    border: "none",
+    borderRadius: "9px",
+    color: "#64748b",
+    padding: "10px 20px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontFamily: "inherit",
+  },
+  confirmActionBtn: {
+    border: "none",
+    borderRadius: "9px",
+    color: "#fff",
+    padding: "10px 20px",
+    fontSize: "14px",
+    fontFamily: "inherit",
+    fontWeight: 600,
   },
 };

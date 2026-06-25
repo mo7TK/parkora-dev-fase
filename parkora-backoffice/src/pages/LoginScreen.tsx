@@ -1,18 +1,43 @@
-// src/pages/Login.tsx
+// src/pages/LoginScreen.tsx
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../types/auth";
 import { User, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 
-export default function Login() {
+function friendlyError(raw: string): string {
+  const msg = raw.toLowerCase();
+  if (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("network")
+  )
+    return "Impossible de joindre le serveur. Vérifiez votre connexion internet.";
+  if (msg.includes("load failed") || msg.includes("fetch"))
+    return "La connexion au serveur a échoué. Réessayez dans quelques instants.";
+  if (msg.includes("timeout"))
+    return "Le serveur met trop de temps à répondre. Réessayez plus tard.";
+  if (
+    msg.includes("401") ||
+    msg.includes("incorrect") ||
+    msg.includes("invalide")
+  )
+    return "Nom d'utilisateur ou mot de passe incorrect.";
+  if (msg.includes("403"))
+    return "Vous n'avez pas l'autorisation d'accéder à cet espace.";
+  if (msg.includes("404"))
+    return "Le service demandé est introuvable. Contactez l'administrateur.";
+  if (msg.includes("500") || msg.includes("serveur"))
+    return "Une erreur s'est produite côté serveur. Réessayez ou contactez le support.";
+  if (msg.includes("connexion échouée"))
+    return "La connexion a échoué. Vérifiez vos identifiants et réessayez.";
+  return raw;
+}
+
+export default function LoginScreen({ role }: { role: Role }) {
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const fromRole = (location.state as { role?: Role } | null)?.role;
-
-  const [role, setRole] = useState<Role>(fromRole ?? "admin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -31,7 +56,7 @@ export default function Login() {
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, [role]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +69,11 @@ export default function Login() {
     try {
       await login(username.trim(), password, role);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Connexion échouée.");
+      setError(
+        err instanceof Error
+          ? friendlyError(err.message)
+          : "Connexion échouée.",
+      );
     } finally {
       setLoading(false);
     }
@@ -67,35 +96,6 @@ export default function Login() {
           <p style={s.subtitle}>
             {isAdmin ? "Espace Administrateur" : "Espace Gestionnaire"}
           </p>
-
-          <div style={s.toggle}>
-            <button
-              type="button"
-              style={{
-                ...s.toggleBtn,
-                ...(isAdmin ? s.toggleActive : s.toggleInactive),
-              }}
-              onClick={() => {
-                setRole("admin");
-                setError("");
-              }}
-            >
-              Administrateur
-            </button>
-            <button
-              type="button"
-              style={{
-                ...s.toggleBtn,
-                ...(!isAdmin ? s.toggleActive : s.toggleInactive),
-              }}
-              onClick={() => {
-                setRole("manager");
-                setError("");
-              }}
-            >
-              Gestionnaire
-            </button>
-          </div>
 
           <form onSubmit={handleSubmit} style={s.form}>
             <div style={s.fieldGroup}>
@@ -229,31 +229,6 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: "4px",
   },
   subtitle: { fontSize: "13px", color: "#94a3b8", marginBottom: "20px" },
-  toggle: {
-    display: "flex",
-    backgroundColor: "#f7f9fc",
-    borderRadius: "12px",
-    padding: "4px",
-    gap: "4px",
-    marginBottom: "24px",
-    border: "1.5px solid #e2e8f0",
-  },
-  toggleBtn: {
-    flex: 1,
-    padding: "10px 0",
-    borderRadius: "9px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: 600,
-    fontFamily: "inherit",
-  },
-  toggleActive: {
-    backgroundColor: "#1a73e8",
-    color: "#fff",
-    boxShadow: "0 2px 8px rgba(26,115,232,0.3)",
-  },
-  toggleInactive: { backgroundColor: "transparent", color: "#94a3b8" },
   form: { display: "flex", flexDirection: "column", gap: "16px" },
   fieldGroup: { display: "flex", flexDirection: "column", gap: "6px" },
   label: { fontSize: "13px", fontWeight: 600, color: "#4a5568" },
@@ -317,5 +292,13 @@ const s: Record<string, React.CSSProperties> = {
     backgroundColor: "#74aaf0",
     cursor: "not-allowed",
     boxShadow: "none",
+  },
+  switchLink: {
+    display: "block",
+    textAlign: "center" as const,
+    marginTop: "16px",
+    fontSize: "13px",
+    color: "#1a73e8",
+    fontWeight: 600,
   },
 };

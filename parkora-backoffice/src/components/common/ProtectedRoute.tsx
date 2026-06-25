@@ -32,21 +32,25 @@ export default function ProtectedRoute({ role, children }: Props) {
   // ── Spinner pendant la restauration de session ────────────────────────────
   if (loading) {
     return (
-      <div style={{
-        display:        "flex",
-        alignItems:     "center",
-        justifyContent: "center",
-        height:         "100vh",
-        background:     "#0f1117",
-      }}>
-        <div style={{
-          width:        "40px",
-          height:       "40px",
-          border:       "3px solid #1e2535",
-          borderTop:    "3px solid #1a73e8",
-          borderRadius: "50%",
-          animation:    "spin 0.8s linear infinite",
-        }} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          background: "#0f1117",
+        }}
+      >
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            border: "3px solid #1e2535",
+            borderTop: "3px solid #1a73e8",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -54,13 +58,7 @@ export default function ProtectedRoute({ role, children }: Props) {
 
   // ── Non connecté ──────────────────────────────────────────────────────────
   if (!user) {
-    return (
-      <Navigate
-        to="/login"
-        state={{ from: location, role }}
-        replace
-      />
-    );
+    return <Navigate to="/login" state={{ from: location, role }} replace />;
   }
 
   // ── Mauvais rôle ──────────────────────────────────────────────────────────

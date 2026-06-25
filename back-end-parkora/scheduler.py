@@ -9,13 +9,16 @@ Condition pour marquer "completed" :
   AND date < aujourd'hui
   OR (date == aujourd'hui AND end_time <= heure actuelle)
 
+Les comparaisons utilisent l'heure locale Algérie (now_local), car
+date/start_time/end_time sont saisis en heure locale par l'app.
+
 Intégré dans le lifespan de main.py via asyncio.create_task().
 """
 
 import asyncio
-from datetime import datetime, timezone
 
 from database import get_database
+from utils.time import now_local
 
 INTERVAL_SECONDS = 60  # vérifie toutes les 60 secondes
 
@@ -23,7 +26,7 @@ INTERVAL_SECONDS = 60  # vérifie toutes les 60 secondes
 async def _mark_completed():
     """Passe en 'completed' toutes les réservations confirmées expirées."""
     db = get_database()
-    now = datetime.now(timezone.utc)
+    now = now_local()
     today = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M")
 

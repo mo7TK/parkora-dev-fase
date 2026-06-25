@@ -5,15 +5,18 @@ Statistiques mensuelles pour le dashboard gestionnaire.
 
 Endpoint :
   GET /backoffice/manager/stats   → revenus + taux du mois courant
-"""
 
-from datetime import datetime, timezone
+Les comparaisons de date/heure utilisent l'heure locale Algérie (now_local),
+car les champs date/start_time/end_time des réservations sont saisis en
+heure locale par l'app.
+"""
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import get_database
 from utils.backoffice_security import get_current_manager
+from utils.time import now_local
 
 router = APIRouter(prefix="/backoffice/manager", tags=["backoffice-stats"])
 
@@ -41,10 +44,10 @@ async def get_stats(manager: dict = Depends(get_current_manager)):
     db     = get_database()
     lot_id = await _get_assigned_lot_id(manager)
 
-    now   = datetime.now(timezone.utc)
+    now   = now_local()
     today = now.strftime("%Y-%m-%d")
 
-    # Préfixe mois courant ex: "2025-06"
+    # Préfixe mois courant ex: "2026-06"
     month_prefix = now.strftime("%Y-%m")
 
     # ── Parking info (pour total_spots) ───────────────────────────────────────

@@ -45,6 +45,10 @@ export interface Reservation {
   status: "confirmed" | "cancelled" | "completed";
   payment_method: string;
   created_at: string;
+  // Motif d'annulation — présent si annulée par le gestionnaire
+  cancellation_reason?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
 }
 
 export interface TodayReservations {
@@ -119,11 +123,19 @@ export const managerApi = {
   getStats: (token: string) =>
     req<ParkingStats>(`${BASE}/stats`, { headers: h(token) }),
 
-  cancelReservation: (token: string, id: string) =>
-    req<{ status: string }>(`${BASE}/reservations/${id}`, {
-      method: "DELETE",
-      headers: h(token),
-    }),
+  /**
+   * Annule une réservation.
+   * @param reason  Motif d'annulation optionnel (affiché au client dans l'historique).
+   */
+  cancelReservation: (token: string, id: string, reason?: string) =>
+    req<{ status: string; cancellation_reason?: string }>(
+      `${BASE}/reservations/${id}`,
+      {
+        method: "DELETE",
+        headers: h(token),
+        body: JSON.stringify({ reason: reason ?? null }),
+      },
+    ),
 
   changePassword: (token: string, body: ChangePasswordBody) =>
     req<{ status: string }>(`${BASE}/password`, {

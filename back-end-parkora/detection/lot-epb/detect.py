@@ -35,7 +35,8 @@ STREAM_WIDTH   = 580
 STREAM_QUALITY = 50
 
 # ── COCO class IDs ───────────────────────────────────────────────────────────
-VEHICLE_CLASSES = {2, 3, 5, 7}
+VEHICLE_CLASSES = {2, 3, 5, 7}      # Cars, Motorcycles, Buses, Trucks
+DISPLAY_CLASSES = {2, 3}             # Only cars and motorcycles get drawn
 
 
 def load_spots(path):
@@ -162,24 +163,36 @@ while True:
 
         results = model(infer_frame, verbose=False)[0]
 
-        # YOLO native rendering: boxes + class labels + confidence
-        yolo_drawn = results.plot()
-        if scale != 1.0:
-            yolo_drawn = cv2.resize(yolo_drawn, (frame.shape[1], frame.shape[0]))
-        annotated_frame = yolo_drawn
-
+        # All vehicles for occupancy logic (cars + motorcycles + buses + trucks)
         vehicle_boxes = []
-        for box in results.boxes:
+        vehicle_mask  = []   # for occupancy (all vehicle types)
+        display_mask  = []   # for drawing (cars + motorcycles only)
+
+        for i, box in enumerate(results.boxes):
             cls_id     = int(box.cls[0])
             confidence = float(box.conf[0])
             if cls_id in VEHICLE_CLASSES and confidence >= CONFIDENCE:
+                vehicle_mask.append(i)
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 if scale != 1.0:
                     x1, y1, x2, y2 = (int(x1 / scale), int(y1 / scale),
                                        int(x2 / scale), int(y2 / scale))
                 vehicle_boxes.append((x1, y1, x2, y2))
+                if cls_id in DISPLAY_CLASSES:
+                    display_mask.append(i)   # only cars/motorcycles get a box drawn
 
-        statuses = compute_statuses(spots, vehicle_boxes)
+        # Filter to display classes only before plotting
+        if display_mask:
+            results.boxes = results.boxes[display_mask]
+        else:
+            results.boxes = results.boxes[0:0]
+
+        yolo_drawn = results.plot()
+        if scale != 1.0:
+            yolo_drawn = cv2.resize(yolo_drawn, (frame.shape[1], frame.shape[0]))
+        annotated_frame = yolo_drawn
+
+        statuses = compute_statuses(spots, vehicle_boxes)  # still uses all vehicles
 
     # Show YOLO-annotated frame when available, raw frame otherwise
     display = annotated_frame.copy() if annotated_frame is not None else frame.copy()
@@ -187,7 +200,7 @@ while True:
     # Draw parking spot polygons on top of the YOLO annotations
     draw_spots(display, spots, statuses)
 
-    cv2.imshow("Parking Detection - EPB", display)
+    cv2.imshow("Parking Detection ", display)
 
     now = time.time()
 

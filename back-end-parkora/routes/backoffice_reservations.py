@@ -3,9 +3,11 @@ routes/backoffice_reservations.py
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from database import get_database
 from utils.backoffice_security import get_current_manager
@@ -20,23 +22,27 @@ def _fmt(r: dict, user: dict = None) -> dict:
     first = user.get("first_name", "") if user else ""
     last  = user.get("last_name",  "") if user else ""
     return {
-        "id":             str(r["_id"]),
-        "user_id":        r.get("user_id", ""),
-        "user_name":      f"{first} {last}".strip() if user else "Client inconnu",
-        "user_plate":     user.get("plate", "")  if user else "",
-        "user_phone":     user.get("phone", "")  if user else "",
-        "user_email":     user.get("email", "")  if user else "",
-        "lot_id":         r.get("lot_id", ""),
-        "lot_name":       r.get("lot_name", ""),
-        "spot_id":        r.get("spot_id"),
-        "date":           r.get("date", ""),
-        "start_time":     r.get("start_time", ""),
-        "end_time":       r.get("end_time", ""),
-        "duration_min":   r.get("duration_min", 0),
-        "total_price":    r.get("total_price", 0),
-        "status":         r.get("status", "confirmed"),
-        "payment_method": r.get("payment_method", "cib"),
-        "created_at":     r.get("created_at", ""),
+        "id":                  str(r["_id"]),
+        "user_id":             r.get("user_id", ""),
+        "user_name":           f"{first} {last}".strip() if user else "Client inconnu",
+        "user_plate":          user.get("plate", "")  if user else "",
+        "user_phone":          user.get("phone", "")  if user else "",
+        "user_email":          user.get("email", "")  if user else "",
+        "lot_id":              r.get("lot_id", ""),
+        "lot_name":            r.get("lot_name", ""),
+        "spot_id":             r.get("spot_id"),
+        "date":                r.get("date", ""),
+        "start_time":          r.get("start_time", ""),
+        "end_time":            r.get("end_time", ""),
+        "duration_min":        r.get("duration_min", 0),
+        "total_price":         r.get("total_price", 0),
+        "status":              r.get("status", "confirmed"),
+        "payment_method":      r.get("payment_method", "cib"),
+        "created_at":          r.get("created_at", ""),
+        # Motif d'annulation (None si non annulée ou pas de motif)
+        "cancellation_reason": r.get("cancellation_reason"),
+        "cancelled_at":        r.get("cancelled_at"),
+        "cancelled_by":        r.get("cancelled_by"),
     }
 
 
@@ -99,11 +105,23 @@ async def today_reservations(manager: dict = Depends(get_current_manager)):
     return {"date": today, "total": len(enriched), "reservations": enriched}
 
 
+# ── Schéma d'annulation avec motif optionnel ─────────────────────────────────
+
+class CancelReservationBody(BaseModel):
+    reason: Optional[str] = None   # motif d'annulation (optionnel)
+
+
 @router.delete("/reservations/{reservation_id}")
 async def cancel_reservation(
     reservation_id: str,
+    body: CancelReservationBody = CancelReservationBody(),
     manager: dict = Depends(get_current_manager),
 ):
+    """
+    Annule une réservation confirmée.
+    Accepte un body JSON optionnel avec un champ `reason` pour le motif.
+    Le motif est stocké dans la réservation et visible par le client.
+    """
     db     = get_database()
     lot_id = await _get_assigned_lot_id(manager)
 
@@ -121,8 +139,25 @@ async def cancel_reservation(
             detail=f"Impossible d'annuler une réservation avec le statut '{reservation['status']}'.",
         )
 
+    # Construire les champs à mettre à jour
+    updates: dict = {
+        "status":       "cancelled",
+        "cancelled_at": datetime.now(timezone.utc).isoformat(),
+        "cancelled_by": "manager",   # distinguer annulation manager vs client
+    }
+
+    # Ajouter le motif seulement s'il est fourni et non vide
+    reason = (body.reason or "").strip()
+    if reason:
+        updates["cancellation_reason"] = reason
+
     await db.reservations.update_one(
         {"_id": ObjectId(reservation_id)},
-        {"$set": {"status": "cancelled"}},
+        {"$set": updates},
     )
-    return {"status": "cancelled", "id": reservation_id}
+
+    return {
+        "status":              "cancelled",
+        "id":                  reservation_id,
+        "cancellation_reason": updates.get("cancellation_reason"),
+    }

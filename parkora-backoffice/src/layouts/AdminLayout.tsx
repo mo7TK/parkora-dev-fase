@@ -39,7 +39,7 @@ export default function AdminLayout({
 
   function handleLogout() {
     logout();
-    navigate("/login", { replace: true });
+    navigate("/login/admin", { replace: true });
   }
 
   return (

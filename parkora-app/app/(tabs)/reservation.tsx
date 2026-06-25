@@ -2,12 +2,8 @@
  * app/(tabs)/reservation.tsx
  * ────────────────────────────
  * Onglet Réservations — historique complet.
- *
- * Statuts :
- *   confirmed → à venir (bleu)
- *   ongoing   → en cours, calculé à la volée (violet)
- *   completed → terminée (vert)
- *   cancelled → annulée (gris)
+ * Affiche le motif d'annulation quand une réservation a été annulée
+ * par le gestionnaire avec un motif.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -43,9 +39,11 @@ type Reservation = {
   status: ReservationStatus;
   payment_method: string;
   created_at: string;
+  // Motif d'annulation (présent si annulée par le gestionnaire)
+  cancellation_reason?: string | null;
+  cancelled_by?: string | null;
 };
 
-// ── Calcule si une réservation est "en cours" en ce moment ───────────────────
 function computeDisplayStatus(r: Reservation): ReservationStatus {
   if (r.status !== "confirmed") return r.status;
 
@@ -96,8 +94,8 @@ const STATUS_CONFIG: Record<
 
 function formatDuration(mins: number): string {
   if (!mins) return "—";
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const h = Math.floor(mins / 60),
+    m = mins % 60;
   return h > 0
     ? m > 0
       ? `${h}h${String(m).padStart(2, "0")}`
@@ -105,7 +103,6 @@ function formatDuration(mins: number): string {
     : `${m} min`;
 }
 
-// ── Calcule le temps restant en minutes ──────────────────────────────────────
 function remainingMinutes(endTime: string): number {
   const now = new Date();
   const [eh, em] = endTime.split(":").map(Number);
@@ -121,7 +118,6 @@ export default function ReservationHistory() {
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
 
-  // Tick toutes les 30s pour rafraîchir les statuts "ongoing"
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(interval);
@@ -182,7 +178,6 @@ export default function ReservationHistory() {
     );
   }
 
-  // Calcule les statuts affichés en tenant compte de l'heure actuelle
   const displayed = reservations.map((r) => ({
     ...r,
     displayStatus: computeDisplayStatus(r),
@@ -314,7 +309,7 @@ export default function ReservationHistory() {
   );
 }
 
-// ── Reservation card component ────────────────────────────────────────────────
+// ── Reservation card ──────────────────────────────────────────────────────────
 
 function ReservationCard({
   reservation: r,
@@ -328,6 +323,12 @@ function ReservationCard({
   const conf = STATUS_CONFIG[displayStatus];
   const isOngoing = displayStatus === "ongoing";
   const remaining = isOngoing ? remainingMinutes(r.end_time) : null;
+
+  // Annulée par le gestionnaire avec un motif
+  const cancelledByManager =
+    r.status === "cancelled" &&
+    r.cancelled_by === "manager" &&
+    r.cancellation_reason;
 
   return (
     <View style={[s.card, isOngoing && s.cardOngoing]}>
@@ -353,7 +354,7 @@ function ReservationCard({
           </View>
         </View>
 
-        {/* Temps restant pour "en cours" */}
+        {/* Temps restant */}
         {isOngoing && remaining !== null && (
           <View style={[s.remainingBar, { borderColor: conf.color + "40" }]}>
             <Ionicons name="hourglass-outline" size={14} color={conf.color} />
@@ -364,6 +365,41 @@ function ReservationCard({
             </Text>
           </View>
         )}
+
+        {/* ── Motif d'annulation gestionnaire ───────────────────────────── */}
+        {cancelledByManager && (
+          <View style={s.cancelReasonBox}>
+            <View style={s.cancelReasonHeader}>
+              <Ionicons
+                name="information-circle-outline"
+                size={15}
+                color="#92400e"
+              />
+              <Text style={s.cancelReasonTitle}>
+                Annulée par le gestionnaire
+              </Text>
+            </View>
+            <Text style={s.cancelReasonText}>{r.cancellation_reason}</Text>
+          </View>
+        )}
+
+        {/* Annulée par client — sans motif */}
+        {r.status === "cancelled" && r.cancelled_by === "client" && (
+          <View style={[s.cancelReasonBox, s.cancelReasonBoxClient]}>
+            <View style={s.cancelReasonHeader}>
+              <Ionicons name="close-circle-outline" size={15} color="#64748b" />
+              <Text style={[s.cancelReasonTitle, { color: "#64748b" }]}>
+                Annulée par vous
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Annulée sans info sur qui */}
+        {r.status === "cancelled" &&
+          !r.cancelled_by &&
+          !r.cancellation_reason &&
+          null}
 
         {/* Details grid */}
         <View style={s.cardDetails}>
@@ -390,7 +426,7 @@ function ReservationCard({
           />
         </View>
 
-        {/* Cancel button — uniquement pour "confirmed" et "ongoing" */}
+        {/* Bouton annulation — uniquement pour confirmed et ongoing */}
         {(displayStatus === "confirmed" || displayStatus === "ongoing") &&
           onCancel && (
             <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
@@ -538,6 +574,38 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+
+  // ── Motif d'annulation ────────────────────────────────────────────────────
+  cancelReasonBox: {
+    backgroundColor: "#fef9ec",
+    borderWidth: 1,
+    borderColor: "#fde68a",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 6,
+  },
+  cancelReasonBoxClient: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+  },
+  cancelReasonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cancelReasonTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#92400e",
+  },
+  cancelReasonText: {
+    fontSize: 13,
+    color: "#78350f",
+    lineHeight: 20,
+    paddingLeft: 21, // aligner avec le texte du titre (icône 15 + gap 6)
+  },
+  // ─────────────────────────────────────────────────────────────────────────
 
   cardDetails: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   chip: {

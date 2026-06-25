@@ -45,7 +45,7 @@ export default function ManagerLayout({
 
   function handleLogout() {
     logout();
-    navigate("/login", { replace: true });
+    navigate("/login/manager", { replace: true });
   }
 
   return (

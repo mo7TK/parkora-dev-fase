@@ -33,8 +33,13 @@ Routers backoffice ajoutés (étapes 1 & 2) :
 Routers stream vidéo MJPEG :
   POST   /push-frame/{lot_id}                   → stream (detect.py → backend)
   GET    /stream/{lot_id}                       → stream (backend → navigateur)
+
+Tâche de fond :
+  scheduler.start_scheduler() — passe les réservations confirmées expirées
+  au statut "completed" toutes les 60 secondes. Démarrée dans le lifespan.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -43,6 +48,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import connect_db, close_db
+from scheduler import start_scheduler
 
 # ── Routers app mobile ────────────────────────────────────────────────────────
 from routes.auth import router as auth_router
@@ -77,7 +83,9 @@ from routes.backoffice_stats import router as backoffice_stats_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_db()
+    scheduler_task = asyncio.create_task(start_scheduler())
     yield
+    scheduler_task.cancel()
     await close_db()
 
 
